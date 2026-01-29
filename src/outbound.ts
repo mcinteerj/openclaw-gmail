@@ -5,6 +5,7 @@ import { type OutboundContext, type ClawdbotConfig } from "moltbot/plugin-sdk";
 import { resolveGmailAccount } from "./accounts.js";
 import { isGmailThreadId } from "./normalize.js";
 import { fetchQuotedContext } from "./quoting.js";
+import { validateThreadReply, isEmailAllowed } from "./outbound-check.js";
 import type { GmailConfig } from "./config.js";
 
 export interface GmailOutboundContext extends OutboundContext {
@@ -67,11 +68,46 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
     ?? gmailCfg?.defaults?.includeQuotedReplies 
     ?? true;
 
+  // Determine outbound restrictions
+  const allowOutboundTo = accountCfg?.allowOutboundTo 
+    ?? gmailCfg?.defaults?.allowOutboundTo 
+    ?? account.allowFrom 
+    ?? [];
+  const threadReplyPolicy = accountCfg?.threadReplyPolicy 
+    ?? gmailCfg?.defaults?.threadReplyPolicy 
+    ?? "open"; // Default: open for backwards compatibility
+
   // Build the body, potentially with quoted thread context
   let body = text;
   const subject = explicitSubject || "(no subject)";
 
   const isThread = isGmailThreadId(toValue);
+
+  // Validate outbound recipients
+  if (isThread && threadReplyPolicy !== "open" && account.email) {
+    const validation = await validateThreadReply(
+      toValue,
+      account.email,
+      allowOutboundTo,
+      threadReplyPolicy
+    );
+    
+    if (!validation.ok) {
+      const blockedList = validation.blocked?.join(", ") || "unknown";
+      throw new Error(
+        `Thread reply blocked by policy (${threadReplyPolicy}): ${validation.reason}. ` +
+        `Blocked recipients: ${blockedList}. ` +
+        `Add them to allowOutboundTo or change threadReplyPolicy to "open".`
+      );
+    }
+  } else if (!isThread && allowOutboundTo.length > 0) {
+    // Direct email: check allowOutboundTo
+    if (!isEmailAllowed(toValue, allowOutboundTo)) {
+      throw new Error(
+        `Direct email to ${toValue} blocked: not in allowOutboundTo list.`
+      );
+    }
+  }
 
   if (!isThread) {
       args.push("--to", toValue);

@@ -12,6 +12,9 @@ export const GmailAccountSchema = z.object({
   pollIntervalMs: z.number().optional(), // Polling interval in ms (default 60s)
   // Reply behavior
   includeQuotedReplies: z.boolean().optional(), // Include thread history in replies (default: true)
+  // Outbound restrictions (security)
+  allowOutboundTo: z.array(z.string()).optional(), // Who we can SEND to (if not set, falls back to allowFrom)
+  threadReplyPolicy: z.enum(["open", "allowlist", "sender-only"]).optional(), // Default: "open" for backwards compat
 });
 
 export const GmailConfigSchema = z.object({
@@ -20,6 +23,8 @@ export const GmailConfigSchema = z.object({
   defaults: z.object({
     allowFrom: z.array(z.string()).optional(),
     includeQuotedReplies: z.boolean().default(true), // Global default for quoted replies
+    allowOutboundTo: z.array(z.string()).optional(), // Global default for outbound allowlist
+    threadReplyPolicy: z.enum(["open", "allowlist", "sender-only"]).optional(), // Global default
   }).optional(),
 });
 
