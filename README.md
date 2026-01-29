@@ -69,5 +69,27 @@ Add to `moltbot.json`:
 
 Run tests:
 ```bash
-./node_modules/.bin/vitest run extensions/gmail/src/
+npm test
+# or
+./node_modules/.bin/vitest run src/
 ```
+
+## Publishing
+
+This repo includes a GitHub Actions workflow for npm publishing.
+
+### Automatic (on release)
+Create a GitHub release → automatically publishes to npm.
+
+### Manual (workflow dispatch)
+Go to Actions → "Publish to npm" → Run workflow.
+
+**Note:** Manual dispatch will:
+1. Bump the version (patch by default, or specify major/minor)
+2. Commit and push the version bump with a tag
+3. Publish to npm
+
+### Setup
+Add `NPM_TOKEN` secret to the repository:
+1. Generate token at npmjs.com → Access Tokens → Classic Token (Automation)
+2. Add to repo: Settings → Secrets → Actions → New repository secret

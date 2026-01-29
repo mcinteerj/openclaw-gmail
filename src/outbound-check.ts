@@ -11,23 +11,45 @@ export interface ThreadParticipant {
   name?: string;
 }
 
+export interface ThreadData {
+  participants: ThreadParticipant[];
+  originalSender: string | null;
+}
+
 /**
- * Fetch all participants (To, CC, From) from a Gmail thread.
+ * Fetch thread data (participants and original sender) in a single call.
  */
-export async function fetchThreadParticipants(
+export async function fetchThreadData(
   threadId: string, 
   accountEmail: string
-): Promise<ThreadParticipant[]> {
+): Promise<ThreadData> {
   return new Promise((resolve, reject) => {
     const args = ["gmail", "thread", "get", threadId, "--json", "--account", accountEmail];
     const proc = spawn("gog", args, { stdio: "pipe" });
     let stdout = "";
     let stderr = "";
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        proc.kill();
+        reject(new Error("Timeout fetching thread data"));
+      }
+    }, 10000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+    };
 
     proc.stdout.on("data", (d) => (stdout += d.toString()));
     proc.stderr.on("data", (d) => (stderr += d.toString()));
 
     proc.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+
       if (code !== 0) {
         reject(new Error(`Failed to fetch thread: ${stderr}`));
         return;
@@ -37,8 +59,10 @@ export async function fetchThreadParticipants(
         const data = JSON.parse(stdout);
         const messages = data.thread?.messages || [];
         const participants = new Map<string, ThreadParticipant>();
+        let originalSender: string | null = null;
 
-        for (const msg of messages) {
+        for (let i = 0; i < messages.length; i++) {
+          const msg = messages[i];
           const headers = msg.payload?.headers || [];
           
           for (const header of headers) {
@@ -49,42 +73,64 @@ export async function fetchThreadParticipants(
                 if (addr.email.toLowerCase() !== accountEmail.toLowerCase()) {
                   participants.set(addr.email.toLowerCase(), addr);
                 }
+                
+                // Capture original sender from first message's From header
+                if (i === 0 && name === "from" && !originalSender) {
+                  originalSender = addr.email;
+                }
               }
             }
           }
         }
 
-        resolve(Array.from(participants.values()));
+        resolve({
+          participants: Array.from(participants.values()),
+          originalSender,
+        });
       } catch (e) {
         reject(new Error(`Failed to parse thread: ${e}`));
       }
     });
 
-    setTimeout(() => {
-      proc.kill();
-      reject(new Error("Timeout fetching thread participants"));
-    }, 10000);
+    proc.on("error", (e) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(`Failed to spawn gog: ${e.message}`));
+    });
   });
 }
 
 /**
  * Parse email addresses from a header value like "Name <email>, Other <email2>"
+ * 
+ * Handles:
+ * - Simple: email@example.com
+ * - Named: Name <email@example.com>
+ * - Quoted names with commas: "Last, First" <email@example.com>
+ * - Multiple addresses separated by commas
  */
-function parseEmailAddresses(value: string): ThreadParticipant[] {
+export function parseEmailAddresses(value: string): ThreadParticipant[] {
   const results: ThreadParticipant[] = [];
+  if (!value || typeof value !== "string") return results;
   
-  // Split by comma, but be careful of commas in quoted names
+  // Split by comma, but respect quoted strings
+  // This regex splits on commas that are NOT inside quotes
   const parts = value.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
   
   for (const part of parts) {
     const trimmed = part.trim();
+    if (!trimmed) continue;
+    
+    // Try to match "Name" <email> or Name <email>
     const match = trimmed.match(/^(?:"?([^"<]*)"?\s*)?<([^>]+)>$/);
     
     if (match) {
-      results.push({
-        name: match[1]?.trim(),
-        email: match[2].trim().toLowerCase(),
-      });
+      const name = match[1]?.trim().replace(/^"|"$/g, "");
+      const email = match[2].trim().toLowerCase();
+      if (email.includes("@")) {
+        results.push({ name: name || undefined, email });
+      }
     } else if (trimmed.includes("@")) {
       // Plain email address
       results.push({ email: trimmed.toLowerCase() });
@@ -96,73 +142,28 @@ function parseEmailAddresses(value: string): ThreadParticipant[] {
 
 /**
  * Check if an email is allowed by the allowlist.
+ * 
+ * Rules:
+ * - Empty list = no restriction (returns true)
+ * - "*" in list = allow all
+ * - Exact match (case-insensitive)
+ * - Domain wildcard: "@company.com" matches any @company.com address
  */
 export function isEmailAllowed(email: string, allowList: string[]): boolean {
-  if (allowList.length === 0) return true; // Empty list = no restriction
+  // Empty list = no restriction
+  if (allowList.length === 0) return true;
   if (allowList.includes("*")) return true;
-
+  
+  if (!email) return false;
   const normalized = email.toLowerCase();
   
   return allowList.some((entry) => {
     const e = entry.toLowerCase().trim();
     if (!e) return false;
     if (normalized === e) return true;
+    // Domain wildcard: must start with @ and email must end with it
     if (e.startsWith("@") && normalized.endsWith(e)) return true;
     return false;
-  });
-}
-
-/**
- * Get the original sender of a thread (first message's From).
- */
-export async function fetchThreadOriginalSender(
-  threadId: string,
-  accountEmail: string
-): Promise<string | null> {
-  return new Promise((resolve, reject) => {
-    const args = ["gmail", "thread", "get", threadId, "--json", "--account", accountEmail];
-    const proc = spawn("gog", args, { stdio: "pipe" });
-    let stdout = "";
-
-    proc.stdout.on("data", (d) => (stdout += d.toString()));
-
-    proc.on("close", (code) => {
-      if (code !== 0) {
-        resolve(null);
-        return;
-      }
-
-      try {
-        const data = JSON.parse(stdout);
-        const messages = data.thread?.messages || [];
-        if (messages.length === 0) {
-          resolve(null);
-          return;
-        }
-
-        // First message is the thread starter
-        const firstMsg = messages[0];
-        const headers = firstMsg.payload?.headers || [];
-        const fromHeader = headers.find((h: any) => h.name.toLowerCase() === "from");
-        
-        if (fromHeader) {
-          const addresses = parseEmailAddresses(fromHeader.value);
-          if (addresses.length > 0) {
-            resolve(addresses[0].email);
-            return;
-          }
-        }
-        
-        resolve(null);
-      } catch (e) {
-        resolve(null);
-      }
-    });
-
-    setTimeout(() => {
-      proc.kill();
-      resolve(null);
-    }, 10000);
   });
 }
 
@@ -190,24 +191,35 @@ export async function validateThreadReply(
     return { ok: true };
   }
 
+  let threadData: ThreadData;
+  try {
+    threadData = await fetchThreadData(threadId, accountEmail);
+  } catch (err) {
+    console.error(`[gmail] Failed to fetch thread data for validation: ${err}`);
+    return { ok: false, reason: `Could not fetch thread data: ${err}` };
+  }
+
   if (policy === "sender-only") {
-    const sender = await fetchThreadOriginalSender(threadId, accountEmail);
-    if (!sender) {
+    if (!threadData.originalSender) {
+      console.error(`[gmail] Could not determine original sender for thread ${threadId}`);
       return { ok: false, reason: "Could not determine thread sender" };
     }
     
-    if (!isEmailAllowed(sender, allowOutboundTo)) {
-      return { ok: false, blocked: [sender], reason: "Thread sender not in allowOutboundTo" };
+    if (!isEmailAllowed(threadData.originalSender, allowOutboundTo)) {
+      return { 
+        ok: false, 
+        blocked: [threadData.originalSender], 
+        reason: "Thread sender not in allowOutboundTo" 
+      };
     }
     
     return { ok: true };
   }
 
   // policy === "allowlist"
-  const participants = await fetchThreadParticipants(threadId, accountEmail);
   const blocked: string[] = [];
 
-  for (const p of participants) {
+  for (const p of threadData.participants) {
     if (!isEmailAllowed(p.email, allowOutboundTo)) {
       blocked.push(p.email);
     }
