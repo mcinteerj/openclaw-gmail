@@ -18,11 +18,11 @@ export function stripQuotes(html: string): string {
   return html;
 }
 
-export function extractTextBody(html?: string, plain?: string): string {
+export function extractTextBody(html?: string, plain?: string, options?: { stripSignature?: boolean }): string {
   // Prefer HTML for stripping structure
   if (html) {
     const stripped = stripQuotes(html);
-    return sanitizeEmailBody(stripped);
+    return sanitizeEmailBody(stripped, { stripSignature: options?.stripSignature ?? true });
   }
   // Fallback to plain text with regex stripping
   if (plain) {

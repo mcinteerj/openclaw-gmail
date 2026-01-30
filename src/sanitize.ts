@@ -60,7 +60,7 @@ export function htmlToText(html: string): string {
   //    - 1×1 images (width/height = 1)
   //    - display:none images
   //    - base64 data URI images
-  s = s.replace(/<img[^>]*(?:width\s*=\s*["']?1["']?\s|height\s*=\s*["']?1["']?\s)[^>]*\/?>/gi, "");
+  s = s.replace(/<img[^>]*(?:width\s*=\s*["']?1["']?(?=[\s>\/])|height\s*=\s*["']?1["']?(?=[\s>\/]))[^>]*\/?>/gi, "");
   s = s.replace(/<img[^>]*display\s*:\s*none[^>]*\/?>/gi, "");
   s = s.replace(/<img[^>]*src\s*=\s*["']data:[^"']*["'][^>]*\/?>/gi, "");
 
@@ -118,10 +118,14 @@ const FOOTER_PATTERNS: RegExp[] = [
  * found, everything after it is dropped.  Individual junk lines are also
  * stripped even if no separator is present.
  */
-export function stripFooterJunk(text: string): string {
+export function stripFooterJunk(text: string, stripSignature = true): string {
+  let s = text;
+
   // If there's a signature separator, chop everything from it onwards
-  const sigIdx = text.search(/^--\s*$/m);
-  let s = sigIdx >= 0 ? text.slice(0, sigIdx) : text;
+  if (stripSignature) {
+    const sigIdx = text.search(/^--\s*$/m);
+    s = sigIdx >= 0 ? text.slice(0, sigIdx) : text;
+  }
 
   // Remove individual footer lines
   for (const pat of FOOTER_PATTERNS) {
@@ -154,8 +158,8 @@ export function cleanWhitespace(text: string): string {
 /**
  * Full sanitisation pipeline: HTML → text → strip junk → clean whitespace.
  */
-export function sanitizeEmailBody(html: string): string {
+export function sanitizeEmailBody(html: string, options?: { stripSignature?: boolean }): string {
   const text = htmlToText(html);
-  const noJunk = stripFooterJunk(text);
+  const noJunk = stripFooterJunk(text, options?.stripSignature ?? true);
   return cleanWhitespace(noJunk);
 }

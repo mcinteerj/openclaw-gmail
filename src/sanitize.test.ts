@@ -37,6 +37,16 @@ describe("htmlToText", () => {
     expect(htmlToText(html)).toBe("Visible");
   });
 
+  it("removes tracking pixels when value is followed by > (no trailing space)", () => {
+    // width="1"> with no space before closing bracket
+    expect(htmlToText(`<img width="1" height="1">Visible`)).toBe("Visible");
+    expect(htmlToText(`<img width='1' height='1'>Visible`)).toBe("Visible");
+    expect(htmlToText(`<img width=1 height=1>Visible`)).toBe("Visible");
+    // Single dimension should still match
+    expect(htmlToText(`<img width="1" src="https://t.co/px.gif">Visible`)).toBe("Visible");
+    expect(htmlToText(`<img height="1" src="https://t.co/px.gif">Visible`)).toBe("Visible");
+  });
+
   it("removes display:none images", () => {
     const html = `<img style="display:none" src="https://example.com/img.png" />Visible`;
     expect(htmlToText(html)).toBe("Visible");
@@ -128,6 +138,14 @@ describe("stripFooterJunk", () => {
     expect(stripFooterJunk(text).trim()).toBe("Real content");
   });
 
+  it("preserves signature block when stripSignature is false", () => {
+    const text = "Real content\n--\nJohn Doe\nCEO, Example Corp";
+    const result = stripFooterJunk(text, false);
+    expect(result).toContain("Real content");
+    expect(result).toContain("John Doe");
+    expect(result).toContain("CEO, Example Corp");
+  });
+
   it("removes copyright footers", () => {
     const text = "Content\n\n© 2024 Example Corp. All rights reserved.";
     const result = stripFooterJunk(text).trim();
@@ -210,5 +228,12 @@ describe("sanitizeEmailBody", () => {
       <div><div><div><span>Deep content</span></div></div></div>
     `;
     expect(sanitizeEmailBody(html)).toContain("Deep content");
+  });
+
+  it("preserves signature when stripSignature option is false", () => {
+    const html = `<p>Hello</p><p>--</p><p>John Doe</p>`;
+    const result = sanitizeEmailBody(html, { stripSignature: false });
+    expect(result).toContain("Hello");
+    expect(result).toContain("John Doe");
   });
 });
