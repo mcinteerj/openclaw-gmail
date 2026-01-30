@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import lockfile from "proper-lockfile";
-import type { ChannelLogSink, InboundMessage } from "moltbot/plugin-sdk";
+import type { ChannelLogSink, InboundMessage } from "openclaw/plugin-sdk";
 import type { ResolvedGmailAccount } from "./accounts.js";
 import { loadHistoryId, saveHistoryId } from "./history-store.js";
 import { parseInboundGmail, parseSearchGmail, type GogPayload, type GogSearchMessage } from "./inbound.js";
@@ -152,7 +152,7 @@ async function markAsRead(id: string, threadId: string | undefined, accountEmail
  */
 async function pruneGmailSessions(account: ResolvedGmailAccount, log: ChannelLogSink) {
   const ttlMs = account.sessionTtlDays * 24 * 60 * 60 * 1000;
-  const stateDir = path.join(os.homedir(), ".clawdbot", "agents", "main", "sessions");
+  const stateDir = path.join(os.homedir(), ".openclaw", "agents", "main", "sessions");
   const storePath = path.join(stateDir, "sessions.json");
 
   // Base directory for agent workspace (where attachments are stored)
