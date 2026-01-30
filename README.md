@@ -17,6 +17,28 @@ moltbot plugins install ./extensions/gmail
 - **Rich Text**: Markdown support for outbound emails.
 - **Threading**: Native Gmail thread support with quoted reply context.
 - **Archiving**: Automatically archives threads upon reply.
+- **Email Body Sanitisation**: Automatically cleans incoming email bodies for LLM consumption.
+
+## Email Body Sanitisation
+
+Incoming emails are automatically sanitised to produce clean, readable text — no configuration needed.
+
+### What It Does
+
+- **HTML-to-text conversion**: Strips tags, removes `<style>` and `<script>` blocks, filters out tracking pixels, and decodes HTML entities.
+- **Footer junk removal**: Strips common noise like unsubscribe links, "Sent from my iPhone", and confidentiality notices.
+- **Whitespace cleanup**: Collapses excessive blank lines and trims leading/trailing whitespace.
+- **Signature stripping**: Removes content below `-- ` signature separators by default.
+
+### Configurable Signature Stripping
+
+Signature stripping is enabled by default. If you need to preserve content after `--` separators (e.g. for emails where dashes appear in the body), you can disable it programmatically:
+
+```ts
+extractTextBody(html, plain, { stripSignature: false })
+```
+
+No plugin configuration is required — sanitisation runs automatically on every inbound message.
 
 ## Reply Behavior
 
