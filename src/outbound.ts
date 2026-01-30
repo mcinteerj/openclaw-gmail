@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
-import { type OutboundContext, type ClawdbotConfig } from "moltbot/plugin-sdk";
+import { type OutboundContext, type OpenClawConfig } from "openclaw/plugin-sdk";
 import { resolveGmailAccount } from "./accounts.js";
 import { isGmailThreadId } from "./normalize.js";
 import { fetchQuotedContext } from "./quoting.js";

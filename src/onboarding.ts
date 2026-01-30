@@ -1,5 +1,5 @@
-import type { ClawdbotConfig, ChannelOnboardingAdapter } from "moltbot/plugin-sdk";
-import { promptAccountId } from "moltbot/plugin-sdk";
+import type { OpenClawConfig, ChannelOnboardingAdapter } from "openclaw/plugin-sdk";
+import { promptAccountId } from "openclaw/plugin-sdk";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { listGmailAccountIds, resolveDefaultGmailAccountId } from "./accounts.js";
@@ -71,7 +71,7 @@ async function fetchGmailName(email: string): Promise<string | undefined> {
 
 export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
   channel,
-  getStatus: async ({ cfg }: { cfg: ClawdbotConfig }) => {
+  getStatus: async ({ cfg }: { cfg: OpenClawConfig }) => {
     const ids = listGmailAccountIds(cfg);
     const configured = ids.length > 0;
     return {
@@ -88,7 +88,7 @@ export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
     accountOverrides,
     shouldPromptAccountIds,
   }: {
-    cfg: ClawdbotConfig;
+    cfg: OpenClawConfig;
     prompter: {
       text: (opts: { message: string; validate?: (val?: string) => string | undefined; initialValue?: string }) => Promise<string>;
       confirm: (opts: { message: string; initialValue?: boolean }) => Promise<boolean>;
@@ -204,7 +204,7 @@ export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
 
     return { cfg: next, accountId: email };
   },
-  disable: (cfg: ClawdbotConfig) => ({
+  disable: (cfg: OpenClawConfig) => ({
     ...cfg,
     channels: {
       ...cfg.channels,
