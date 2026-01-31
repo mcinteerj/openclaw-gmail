@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import lockfile from "proper-lockfile";
-import type { ChannelLogSink, InboundMessage } from "moltbot/plugin-sdk";
+import type { ChannelLogSink, InboundMessage } from "openclaw/plugin-sdk";
 import type { ResolvedGmailAccount } from "./accounts.js";
 import { loadHistoryId, saveHistoryId } from "./history-store.js";
 import { parseInboundGmail, parseSearchGmail, type GogPayload, type GogSearchMessage } from "./inbound.js";

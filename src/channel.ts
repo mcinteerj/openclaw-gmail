@@ -6,10 +6,10 @@ import {
   setAccountEnabledInConfigSection,
   deleteAccountFromConfigSection,
   type InboundMessage,
-  type ClawdbotConfig,
+  type OpenClawConfig,
   type ChannelGatewayContext,
   type MsgContext,
-} from "moltbot/plugin-sdk";
+} from "openclaw/plugin-sdk";
 import { GmailConfigSchema } from "./config.js";
 import {
   resolveGmailAccount,
@@ -53,7 +53,7 @@ const dispatchSemaphore = new Semaphore(5);
 function buildGmailMsgContext(
   msg: InboundMessage,
   account: ResolvedGmailAccount,
-  cfg: ClawdbotConfig,
+  cfg: OpenClawConfig,
 ): MsgContext {
   const runtime = getGmailRuntime();
   const to = `gmail:${account.email}`;
@@ -273,7 +273,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     },
   },
   agentPrompt: {
-    messageToolHints: ({ cfg, accountId }: { cfg: ClawdbotConfig; accountId: string }) => {
+    messageToolHints: ({ cfg, accountId }: { cfg: OpenClawConfig; accountId: string }) => {
       const account = resolveGmailAccount(cfg, accountId);
       return [
         "### Gmail Messaging",

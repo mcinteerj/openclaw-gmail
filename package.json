@@ -1,24 +1,23 @@
 {
-  "name": "@mcinteerj/moltbot-gmail",
+  "name": "@mcinteerj/openclaw-gmail",
   "version": "1.1.4",
-  "description": "Gmail channel plugin for Moltbot - uses gog CLI for secure Gmail access",
+  "description": "Gmail channel plugin for OpenClaw - uses gog CLI for secure Gmail access",
   "type": "module",
   "main": "index.ts",
   "author": "Jake McInteer <mcinteerj@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/moltbot/moltbot",
-    "directory": "extensions/gmail"
+    "url": "https://github.com/mcinteerj/openclaw-gmail"
   },
   "keywords": [
-    "moltbot",
+    "openclaw",
     "gmail",
     "email",
     "channel",
     "plugin"
   ],
-  "moltbot": {
+  "openclaw": {
     "extensions": [
       "./index.ts"
     ],
@@ -38,7 +37,7 @@
   "files": [
     "index.ts",
     "src/**/*.ts",
-    "moltbot.plugin.json",
+    "openclaw.plugin.json",
     "README.md"
   ],
   "dependencies": {
@@ -50,6 +49,6 @@
     "zod": "^4.3.5"
   },
   "peerDependencies": {
-    "moltbot": ">=2026.1.0"
+    "openclaw": ">=2026.1.0"
   }
 }
