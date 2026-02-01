@@ -17,7 +17,7 @@ export function resolveGmailAccount(
   accountId?: string,
 ): ResolvedGmailAccount {
   const resolvedId = accountId || DEFAULT_ACCOUNT_ID;
-  const account = cfg.channels?.gmail?.accounts?.[resolvedId];
+  const account = cfg.channels?.['openclaw-gmail']?.accounts?.[resolvedId];
 
   if (!account) {
     // Graceful fallback for UI logic that queries 'default' on unconfigured channels
@@ -46,7 +46,7 @@ export function resolveGmailAccount(
 }
 
 export function listGmailAccountIds(cfg: ChannelConfig<GmailConfig>): string[] {
-  return Object.keys(cfg.channels?.gmail?.accounts || {});
+  return Object.keys(cfg.channels?.['openclaw-gmail']?.accounts || {});
 }
 
 export function resolveDefaultGmailAccountId(cfg: ChannelConfig<GmailConfig>): string {

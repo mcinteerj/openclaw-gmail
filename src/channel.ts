@@ -211,7 +211,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     setAccountEnabled: ({ cfg, accountId, enabled }) =>
       setAccountEnabledInConfigSection({
         cfg,
-        sectionKey: "gmail",
+        sectionKey: "openclaw-gmail",
         accountId,
         enabled,
         allowTopLevel: true,
@@ -219,7 +219,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     deleteAccount: ({ cfg, accountId }) =>
       deleteAccountFromConfigSection({
         cfg,
-        sectionKey: "gmail",
+        sectionKey: "openclaw-gmail",
         accountId,
       }),
   },
