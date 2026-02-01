@@ -1,7 +1,7 @@
 {
   "id": "openclaw-gmail",
   "channels": [
-    "gmail"
+    "openclaw-gmail"
   ],
   "configSchema": {
     "type": "object",
