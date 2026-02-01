@@ -150,10 +150,11 @@ async function dispatchGmailMessage(
 import { gmailOnboardingAdapter } from "./onboarding.js";
 
 export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
-  id: "gmail",
+  id: "openclaw-gmail",
   onboarding: gmailOnboardingAdapter,
   meta: {
     ...meta,
+    id: "openclaw-gmail",
     showConfigured: true,
   },
   capabilities: {
