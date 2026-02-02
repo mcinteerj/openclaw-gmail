@@ -277,6 +277,10 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     messageToolHints: ({ cfg, accountId }: { cfg: OpenClawConfig; accountId: string }) => {
       const account = resolveGmailAccount(cfg, accountId);
       return [
+        "### Channel Behavior",
+        "- Email is an async channel—avoid narration or progress updates (each message becomes a separate email).",
+        "- Work silently; send ONE reply when complete. For long-running tasks, notify before starting or after completing.",
+        "",
         "### Gmail Messaging",
         "- To reply to this email, just write your response normally as text in your turn. This will Reply All to everyone on the thread.",
         "- Your Markdown response is automatically converted to a rich HTML email using the `marked` library.",
