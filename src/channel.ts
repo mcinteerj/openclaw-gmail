@@ -335,31 +335,31 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
 
       ctx.setStatus({ accountId: ctx.accountId, running: true, connected: true });
 
-      // Create abort signal for stopping the monitor
-      const abortController = new AbortController();
+      // The channel manager treats startAccount's promise resolving as the channel
+      // "exiting", which triggers auto-restart. We must keep this promise pending
+      // until the channel manager signals stop via ctx.abortSignal.
+      const signal = ctx.abortSignal;
 
-      // Start the Gmail polling monitor
-      monitorGmail({
+      // Start the Gmail polling monitor (awaits until signal is aborted)
+      await monitorGmail({
         account: ctx.account,
         onMessage: async (msg) => {
           await dispatchGmailMessage(ctx, msg);
         },
-        signal: abortController.signal,
+        signal,
         log: ctx.log,
         setStatus: ctx.setStatus,
       }).catch((err) => {
-        ctx.log?.error(`[gmail] Monitor error: ${String(err)}`);
+        if (!signal.aborted) {
+          ctx.log?.error(`[gmail] Monitor error: ${String(err)}`);
+        }
       });
 
-      return {
-        stop: async () => {
-          abortController.abort();
-          if (ctx.account.email) {
-            activeAccounts.delete(ctx.account.email.toLowerCase());
-          }
-          ctx.setStatus({ accountId: ctx.accountId, running: false, connected: false });
-        },
-      };
+      // Cleanup after monitor exits
+      if (ctx.account.email) {
+        activeAccounts.delete(ctx.account.email.toLowerCase());
+      }
+      ctx.setStatus({ accountId: ctx.accountId, running: false, connected: false });
     },
   },
 };
