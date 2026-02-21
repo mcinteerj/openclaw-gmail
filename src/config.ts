@@ -15,6 +15,7 @@ export const GmailAccountSchema = z.object({
   // Outbound restrictions (security)
   allowOutboundTo: z.array(z.string()).optional(), // Who we can SEND to (if not set, falls back to allowFrom)
   threadReplyPolicy: z.enum(["open", "allowlist", "sender-only"]).optional(), // Default: "open" for backwards compat
+  archiveOnReply: z.boolean().optional(), // Archive thread after reply (default: true)
 });
 
 export const GmailConfigSchema = z.object({
@@ -26,6 +27,7 @@ export const GmailConfigSchema = z.object({
     includeQuotedReplies: z.boolean().default(true), // Global default for quoted replies
     allowOutboundTo: z.array(z.string()).optional(), // Global default for outbound allowlist
     threadReplyPolicy: z.enum(["open", "allowlist", "sender-only"]).optional(), // Global default
+    archiveOnReply: z.boolean().optional(), // Global default for archive on reply (default: true)
   }).optional(),
 });
 

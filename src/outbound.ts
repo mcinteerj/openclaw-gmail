@@ -160,8 +160,11 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
 
   await spawnGog(args);
 
-  // Archive if it was a thread (Reply = Archive)
-  if (isThread) {
+  // Archive if it was a thread (Reply = Archive), unless disabled by config
+  const archiveOnReply = accountCfg?.archiveOnReply
+    ?? gmailCfg?.defaults?.archiveOnReply
+    ?? true;
+  if (isThread && archiveOnReply) {
     const archiveArgs = ["gmail", "labels", "modify", toValue];
     if (account.email) archiveArgs.push("--account", account.email);
     archiveArgs.push("--remove", "INBOX");

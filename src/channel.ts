@@ -186,6 +186,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
               allowFrom: { type: "array", items: { type: "string" } },
               historyId: { type: "string" },
               delegate: { type: "string" },
+              archiveOnReply: { type: "boolean", default: true },
             },
             required: ["email"],
           },
@@ -194,6 +195,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
           type: "object",
           properties: {
             allowFrom: { type: "array", items: { type: "string" } },
+            archiveOnReply: { type: "boolean", default: true },
           },
         },
       },
