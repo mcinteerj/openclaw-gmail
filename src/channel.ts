@@ -10,7 +10,7 @@ import {
   type ChannelGatewayContext,
   type MsgContext,
 } from "openclaw/plugin-sdk";
-import { GmailConfigSchema } from "./config.js";
+import { GmailConfigSchema, type GmailConfig } from "./config.js";
 import {
   resolveGmailAccount,
   resolveDefaultGmailAccountId,
@@ -104,6 +104,7 @@ async function dispatchGmailMessage(
       
       // Build the dispatch context
       const ctxPayload = buildGmailMsgContext(msg, account, cfg);
+      const gmailCfg = cfg.channels?.gmail as GmailConfig | undefined;
 
       // Build reply dispatcher options using gateway's reply capability
       const deliver = async (payload: { text: string }) => {
@@ -139,6 +140,12 @@ async function dispatchGmailMessage(
             log?.error(`[gmail][${requestId}] ${info.kind} reply failed: ${String(err)}`);
           },
         },
+        replyOptions: {
+          disableBlockStreaming:
+            typeof gmailCfg?.blockStreaming === "boolean"
+              ? !gmailCfg.blockStreaming
+              : true, // Default: disabled for email
+        },
       });
       log?.info(`[gmail][${requestId}] Dispatch complete for ${msg.channelMessageId}`);
     } catch (e: unknown) {
@@ -167,6 +174,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
       type: "object",
       properties: {
         enabled: { type: "boolean", default: true },
+        blockStreaming: { type: "boolean", default: false },
         accounts: {
           type: "object",
           additionalProperties: {

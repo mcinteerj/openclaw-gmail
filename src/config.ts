@@ -19,6 +19,7 @@ export const GmailAccountSchema = z.object({
 
 export const GmailConfigSchema = z.object({
   enabled: z.boolean().default(true),
+  blockStreaming: z.boolean().optional(), // Enable block streaming for email (default: false — emails send as one message)
   accounts: z.record(GmailAccountSchema).optional(),
   defaults: z.object({
     allowFrom: z.array(z.string()).optional(),
