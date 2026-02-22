@@ -162,6 +162,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
   meta: {
     ...meta,
     id: "openclaw-gmail",
+    aliases: ["gmail"],
     showConfigured: true,
   },
   capabilities: {
