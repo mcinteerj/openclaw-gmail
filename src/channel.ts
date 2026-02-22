@@ -21,10 +21,9 @@ import { setGmailRuntime, getGmailRuntime } from "./runtime.js";
 import { sendGmailText, type GmailOutboundContext } from "./outbound.js";
 import { gmailThreading } from "./threading.js";
 import { normalizeGmailTarget, isGmailThreadId, isAllowed } from "./normalize.js";
-import { parseInboundGmail, type GogPayload } from "./inbound.js";
-import { monitorGmail, quarantineMessage } from "./monitor.js";
-import { extractAttachments } from "./attachments.js";
+import { monitorGmail } from "./monitor.js";
 import { Semaphore } from "./semaphore.js";
+import { createGmailClient, type GmailClient } from "./gmail-client.js";
 import crypto from "node:crypto";
 
 const meta = {
@@ -40,8 +39,9 @@ const meta = {
   showConfigured: true,
 };
 
-// Map to store active account contexts
+// Map to store active account contexts and their clients
 const activeAccounts = new Map<string, ChannelGatewayContext<ResolvedGmailAccount>>();
+const activeClients = new Map<string, GmailClient>();
 
 // Limit concurrent dispatches to avoid memory spikes
 const dispatchSemaphore = new Semaphore(5);
@@ -93,6 +93,7 @@ function buildGmailMsgContext(
 async function dispatchGmailMessage(
   ctx: ChannelGatewayContext<ResolvedGmailAccount>,
   msg: InboundMessage,
+  client: GmailClient,
 ) {
   const { account, accountId, cfg, log } = ctx;
   const runtime = getGmailRuntime();
@@ -101,7 +102,7 @@ async function dispatchGmailMessage(
   await dispatchSemaphore.run(async () => {
     try {
       log?.info(`[gmail][${requestId}] Dispatching message ${msg.channelMessageId} from ${msg.sender.id}`);
-      
+
       // Build the dispatch context
       const ctxPayload = buildGmailMsgContext(msg, account, cfg);
       const gmailCfg = cfg.channels?.gmail as GmailConfig | undefined;
@@ -109,10 +110,10 @@ async function dispatchGmailMessage(
       // Build reply dispatcher options using gateway's reply capability
       const deliver = async (payload: { text: string }) => {
         const originalSubject = msg.raw?.subject ||
-                               msg.raw?.headers?.subject || 
+                               msg.raw?.headers?.subject ||
                                msg.raw?.payload?.headers?.find((h: any) => h.name.toLowerCase() === "subject")?.value;
-        
-        const replySubject = originalSubject 
+
+        const replySubject = originalSubject
           ? (originalSubject.toLowerCase().startsWith("re:") ? originalSubject : `Re: ${originalSubject}`)
           : "Re: ";
 
@@ -124,6 +125,7 @@ async function dispatchGmailMessage(
           threadId: msg.threadId,
           replyToId: msg.channelMessageId,
           subject: replySubject,
+          client,
         });
       };
 
@@ -238,7 +240,12 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
   outbound: {
     deliveryMode: "gateway",
     textChunkLimit: 8000,
-    sendText: sendGmailText,
+    sendText: (ctx: any) => {
+      const account = resolveGmailAccount(ctx.cfg, ctx.accountId);
+      const emailKey = account.email?.toLowerCase();
+      const client = (emailKey && activeClients.get(emailKey)) || createGmailClient(account);
+      return sendGmailText({ ...ctx, client });
+    },
     resolveTarget: ({ to, allowFrom }) => {
       const trimmed = to?.trim() ?? "";
       const normalized = normalizeGmailTarget(trimmed);
@@ -311,15 +318,19 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     supportsAction: ({ action }: { action: string }) => action === "send",
     handleAction: async (ctx: any) => {
       if (ctx.action !== "send") return { ok: false, error: new Error(`Unsupported action: ${ctx.action}`) };
-      
+
       const { params, accountId, cfg, toolContext } = ctx;
+      const account = resolveGmailAccount(cfg, accountId);
+      const emailKey = account.email?.toLowerCase();
+      const client = (emailKey && activeClients.get(emailKey)) || createGmailClient(account);
+
       const to = (params.target || params.to) as string;
       const text = params.message as string;
-      
+
       const isThread = isGmailThreadId(to);
       let subject = params.subject as string | undefined;
       let replyToId: string | undefined;
-      
+
       if (isThread && toolContext?.currentThreadTs) {
           replyToId = toolContext.currentThreadTs;
       }
@@ -332,8 +343,9 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
         threadId: isThread ? to : undefined,
         replyToId,
         subject,
+        client,
       });
-      
+
       return { ok: true, content: [{ type: "text", text: "Message sent via Gmail." }] };
     },
   },
@@ -341,8 +353,12 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     startAccount: async (ctx) => {
       ctx.log?.info(`[gmail] Account ${ctx.account.accountId} started`);
 
-      if (ctx.account.email) {
-        activeAccounts.set(ctx.account.email.toLowerCase(), ctx);
+      const client = createGmailClient(ctx.account);
+      const emailKey = ctx.account.email?.toLowerCase();
+
+      if (emailKey) {
+        activeAccounts.set(emailKey, ctx);
+        activeClients.set(emailKey, client);
       }
 
       ctx.setStatus({ accountId: ctx.accountId, running: true, connected: true });
@@ -356,11 +372,12 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
       await monitorGmail({
         account: ctx.account,
         onMessage: async (msg) => {
-          await dispatchGmailMessage(ctx, msg);
+          await dispatchGmailMessage(ctx, msg, client);
         },
         signal,
         log: ctx.log,
         setStatus: ctx.setStatus,
+        client,
       }).catch((err) => {
         if (!signal.aborted) {
           ctx.log?.error(`[gmail] Monitor error: ${String(err)}`);
@@ -368,8 +385,9 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
       });
 
       // Cleanup after monitor exits
-      if (ctx.account.email) {
-        activeAccounts.delete(ctx.account.email.toLowerCase());
+      if (emailKey) {
+        activeAccounts.delete(emailKey);
+        activeClients.delete(emailKey);
       }
       ctx.setStatus({ accountId: ctx.accountId, running: false, connected: false });
     },
