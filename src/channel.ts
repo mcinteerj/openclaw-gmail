@@ -191,6 +191,15 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
               delegate: { type: "string" },
               archiveOnReply: { type: "boolean", default: true },
               backend: { type: "string", enum: ["gog", "api"] },
+              oauth: {
+                type: "object",
+                properties: {
+                  clientId: { type: "string" },
+                  clientSecret: { type: "string" },
+                  refreshToken: { type: "string" },
+                },
+                required: ["clientId", "clientSecret", "refreshToken"],
+              },
             },
             required: ["email"],
           },
@@ -243,7 +252,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     sendText: (ctx: any) => {
       const account = resolveGmailAccount(ctx.cfg, ctx.accountId);
       const emailKey = account.email?.toLowerCase();
-      const client = (emailKey && activeClients.get(emailKey)) || createGmailClient(account);
+      const client = (emailKey && activeClients.get(emailKey)) || createGmailClient(account, ctx.cfg);
       return sendGmailText({ ...ctx, client });
     },
     resolveTarget: ({ to, allowFrom }) => {
@@ -322,7 +331,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
       const { params, accountId, cfg, toolContext } = ctx;
       const account = resolveGmailAccount(cfg, accountId);
       const emailKey = account.email?.toLowerCase();
-      const client = (emailKey && activeClients.get(emailKey)) || createGmailClient(account);
+      const client = (emailKey && activeClients.get(emailKey)) || createGmailClient(account, cfg);
 
       const to = (params.target || params.to) as string;
       const text = params.message as string;
@@ -353,7 +362,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     startAccount: async (ctx) => {
       ctx.log?.info(`[gmail] Account ${ctx.account.accountId} started`);
 
-      const client = createGmailClient(ctx.account);
+      const client = createGmailClient(ctx.account, ctx.cfg);
       const emailKey = ctx.account.email?.toLowerCase();
 
       if (emailKey) {

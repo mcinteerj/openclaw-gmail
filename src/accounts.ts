@@ -10,6 +10,12 @@ export interface ResolvedGmailAccount extends ResolvedChannelAccount {
   historyId?: string;
   delegate?: string;
   pollIntervalMs?: number;
+  backend?: "gog" | "api";
+  oauth?: {
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+  };
 }
 
 export function resolveGmailAccount(
@@ -42,6 +48,8 @@ export function resolveGmailAccount(
     delegate: account.delegate,
     allowFrom: account.allowFrom,
     pollIntervalMs: account.pollIntervalMs,
+    backend: account.backend,
+    oauth: account.oauth,
   };
 }
 

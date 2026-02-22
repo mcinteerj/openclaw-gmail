@@ -310,8 +310,8 @@ export async function monitorGmail(params: {
 }) {
   const { account, onMessage, signal, log, setStatus, client } = params;
 
-  // Doctor check — gog-specific but harmless; will be backend-aware after gmail-2.2
-  if (!(await GogGmailClient.checkExists())) {
+  // Doctor check — only require gog CLI for the gog backend
+  if (account.backend !== "api" && !(await GogGmailClient.checkExists())) {
     log.error("gog CLI not found in PATH. Gmail channel disabled.");
     setStatus({ accountId: account.accountId, running: false, connected: false, error: "gog CLI missing" });
     return;
