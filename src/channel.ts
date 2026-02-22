@@ -65,7 +65,7 @@ function buildGmailMsgContext(
     CommandBody: msg.text,
     From: msg.sender.id,
     To: to,
-    SessionKey: `gmail:${account.email}:${msg.threadId}`,
+    SessionKey: `agent:main:gmail:${account.email}:${msg.threadId}`,
     AccountId: msg.accountId,
     ChatType: "direct",
     ConversationLabel: threadLabel,
@@ -84,7 +84,7 @@ function buildGmailMsgContext(
     MediaUrl: msg.mediaUrl,
     CommandAuthorized: false,
     OriginatingChannel: "gmail" as const,
-    OriginatingTo: to,
+    OriginatingTo: msg.threadId,
   });
 
   return ctx;
