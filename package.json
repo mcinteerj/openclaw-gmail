@@ -1,6 +1,6 @@
 {
   "name": "@mcinteerj/openclaw-gmail",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Gmail channel plugin for OpenClaw - direct API or gog CLI",
   "type": "module",
   "main": "index.ts",
