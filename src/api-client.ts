@@ -4,13 +4,12 @@ import fs from "node:fs/promises";
 import type { GmailClient } from "./gmail-client.js";
 import type { ThreadResponse, GogRawMessage } from "./quoting.js";
 import type { GogSearchMessage } from "./inbound.js";
+import { buildMimeMessage } from "./mime.js";
+import { parseEmailAddresses } from "./outbound-check.js";
 
 /**
  * Gmail API client using googleapis library directly.
  * Implements GmailClient interface for the "api" backend.
- *
- * Read operations are implemented here (gmail-2.3).
- * Send is deferred to gmail-2.4 (MIME construction).
  */
 export class ApiGmailClient implements GmailClient {
   private gmail: gmail_v1.Gmail;
@@ -19,7 +18,7 @@ export class ApiGmailClient implements GmailClient {
     this.gmail = gmailApi({ version: "v1", auth });
   }
 
-  async send(_opts: {
+  async send(opts: {
     account?: string;
     to?: string;
     subject: string;
@@ -29,7 +28,116 @@ export class ApiGmailClient implements GmailClient {
     replyToMessageId?: string;
     replyAll?: boolean;
   }): Promise<void> {
-    throw new Error("ApiGmailClient.send() not yet implemented (see gmail-2.4)");
+    const selfEmail = opts.account || "";
+    let to = opts.to || "";
+    let cc: string | undefined;
+    let inReplyTo: string | undefined;
+    let references: string | undefined;
+
+    // For thread replies, resolve recipients and threading headers
+    if (opts.threadId) {
+      const replyCtx = await this.resolveReplyContext(
+        opts.threadId,
+        selfEmail,
+        opts.replyAll ?? false,
+      );
+      if (replyCtx) {
+        to = replyCtx.to;
+        cc = replyCtx.cc;
+        inReplyTo = replyCtx.inReplyTo;
+        references = replyCtx.references;
+      }
+    }
+
+    if (!to) {
+      throw new Error("Cannot send: no recipient resolved");
+    }
+
+    const mime = await buildMimeMessage({
+      from: selfEmail,
+      to,
+      cc,
+      subject: opts.subject,
+      text: opts.textBody,
+      html: opts.htmlBody,
+      inReplyTo,
+      references,
+    });
+
+    await this.gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        raw: mime.toString("base64url"),
+        threadId: opts.threadId,
+      },
+    });
+  }
+
+  /**
+   * Resolve reply recipients and threading headers from the last message in a thread.
+   */
+  private async resolveReplyContext(
+    threadId: string,
+    selfEmail: string,
+    replyAll: boolean,
+  ): Promise<{ to: string; cc?: string; inReplyTo?: string; references?: string } | null> {
+    const thread = await this.getThread(threadId, { full: true });
+    if (!thread || thread.messages.length === 0) return null;
+
+    const lastMsg = thread.messages[thread.messages.length - 1];
+
+    // Resolve To: reply to the sender of the last message
+    const to = lastMsg.from;
+
+    // For reply-all, Cc = everyone from To + Cc minus self and the new To
+    let cc: string | undefined;
+    if (replyAll) {
+      const selfLower = selfEmail.toLowerCase();
+      const toAddresses = parseEmailAddresses(to);
+      const toLower = new Set(toAddresses.map((a) => a.email.toLowerCase()));
+
+      const ccCandidates: string[] = [];
+      for (const field of [lastMsg.to, lastMsg.cc]) {
+        if (!field) continue;
+        const addresses = parseEmailAddresses(field);
+        for (const addr of addresses) {
+          if (addr.email.toLowerCase() !== selfLower && !toLower.has(addr.email.toLowerCase())) {
+            ccCandidates.push(addr.name ? `${addr.name} <${addr.email}>` : addr.email);
+            toLower.add(addr.email.toLowerCase()); // dedupe
+          }
+        }
+      }
+      if (ccCandidates.length > 0) {
+        cc = ccCandidates.join(", ");
+      }
+    }
+
+    // Resolve In-Reply-To and References from the last message
+    // We need the raw Message-ID header — fetch it from the API directly
+    let messageId: string | undefined;
+    try {
+      const res = await this.gmail.users.messages.get({
+        userId: "me",
+        id: lastMsg.id,
+        format: "metadata",
+        metadataHeaders: ["Message-ID", "References"],
+      });
+      const headers = res.data.payload?.headers || [];
+      messageId = headers.find((h) => h.name?.toLowerCase() === "message-id")?.value ?? undefined;
+      const existingRefs = headers.find((h) => h.name?.toLowerCase() === "references")?.value;
+      if (messageId) {
+        return {
+          to,
+          cc,
+          inReplyTo: messageId,
+          references: existingRefs ? `${existingRefs} ${messageId}` : messageId,
+        };
+      }
+    } catch {
+      // Fall through — send without threading headers
+    }
+
+    return { to, cc };
   }
 
   async getThread(threadId: string, opts?: { full?: boolean }): Promise<ThreadResponse | null> {

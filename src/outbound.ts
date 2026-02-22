@@ -120,6 +120,7 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
   }
 
   await client.send({
+    account: account.email,
     to: isThread ? undefined : toValue,
     subject,
     textBody: plainBody,
