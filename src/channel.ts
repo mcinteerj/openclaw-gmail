@@ -29,11 +29,11 @@ import crypto from "node:crypto";
 const meta = {
   id: "gmail",
   label: "Gmail",
-  selectionLabel: "Gmail (gog)",
+  selectionLabel: "Gmail",
   detailLabel: "Gmail",
   docsPath: "/channels/gmail",
   docsLabel: "gmail",
-  blurb: "Uses gog for secure Gmail access.",
+  blurb: "Gmail integration via direct API or gog CLI.",
   systemImage: "envelope",
   order: 100,
   showConfigured: true,

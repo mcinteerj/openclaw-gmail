@@ -92,11 +92,22 @@ export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
   getStatus: async ({ cfg }: { cfg: OpenClawConfig }) => {
     const ids = listGmailAccountIds(cfg);
     const configured = ids.length > 0;
+    const gmailConfig = (cfg.channels as any)?.gmail || {};
+    const accounts = gmailConfig.accounts || {};
+    const backends = new Set(
+      Object.values(accounts).map((a: any) => a.backend || "gog"),
+    );
+    let hint = "Gmail polling";
+    if (backends.size === 1) {
+      hint = backends.has("api") ? "Gmail API" : "gog CLI";
+    } else if (backends.size > 1) {
+      hint = "Gmail API + gog CLI";
+    }
     return {
       channel,
       configured,
       statusLines: [`Gmail: ${configured ? `${ids.length} accounts` : "not configured"}`],
-      selectionHint: "Polling via Gmail API or gog CLI",
+      selectionHint: hint,
       quickstartScore: configured ? 1 : 5,
     };
   },
