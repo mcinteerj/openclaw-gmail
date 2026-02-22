@@ -41,6 +41,7 @@
     "README.md"
   ],
   "dependencies": {
+    "@googleapis/gmail": "^16.1.1",
     "dompurify": "^3.2.3",
     "google-auth-library": "^10.5.0",
     "jsdom": "^25.0.1",

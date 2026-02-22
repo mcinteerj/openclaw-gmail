@@ -2,6 +2,7 @@ import type { ResolvedGmailAccount } from "./accounts.js";
 import type { ThreadResponse } from "./quoting.js";
 import type { GogSearchMessage } from "./inbound.js";
 import { GogGmailClient } from "./gog-client.js";
+import { ApiGmailClient } from "./api-client.js";
 import { resolveOAuthCredentials, createOAuth2Client } from "./auth.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 
@@ -42,10 +43,7 @@ export function createGmailClient(account: ResolvedGmailAccount, cfg?: OpenClawC
       );
     }
     const auth = createOAuth2Client(creds);
-    // ApiGmailClient will be implemented in gmail-2.3 — for now, throw a clear error
-    throw new Error(
-      `API backend selected for ${account.email} but ApiGmailClient is not yet implemented (see gmail-2.3).`,
-    );
+    return new ApiGmailClient(auth);
   }
 
   return new GogGmailClient(account.email);
