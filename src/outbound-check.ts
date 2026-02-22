@@ -38,10 +38,14 @@ export function parseEmailAddresses(value: string): ThreadParticipant[] {
     if (!trimmed) continue;
 
     // Try to match "Name" <email> or Name <email>
-    const match = trimmed.match(/^(?:"?([^"<]*)"?\s*)?<([^>]+)>$/);
+    // First pattern: quoted name with possible escaped quotes inside
+    // Second pattern: unquoted name
+    const match =
+      trimmed.match(/^"((?:[^"\\]|\\.)*?)"\s*<([^>]+)>$/) ||
+      trimmed.match(/^(?:([^"<]*)\s+)?<([^>]+)>$/);
 
     if (match) {
-      const name = match[1]?.trim().replace(/^"|"$/g, "");
+      const name = match[1]?.trim().replace(/\\"/g, '"');
       const email = match[2].trim().toLowerCase();
       if (email.includes("@")) {
         results.push({ name: name || undefined, email });
