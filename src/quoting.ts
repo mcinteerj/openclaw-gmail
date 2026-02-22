@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
 import sanitizeHtml from "sanitize-html";
+import type { GmailClient } from "./gmail-client.js";
 
 export interface QuotedContent {
   header: string;        // "On Mon, Feb 22, 2026 at 2:15 PM, John Doe wrote:"
@@ -129,52 +129,6 @@ export function parseGogThreadOutput(data: unknown): ThreadResponse | null {
 }
 
 /**
- * Fetch thread data from gog CLI
- */
-async function fetchThread(threadId: string, account?: string): Promise<ThreadResponse | null> {
-  const args = ["gmail", "thread", "get", threadId, "--full", "--json"];
-  if (account) {
-    args.push("--account", account);
-  }
-
-  return new Promise((resolve) => {
-    const proc = spawn("gog", args, { stdio: "pipe" });
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", (d) => (stdout += d.toString()));
-    proc.stderr.on("data", (d) => (stderr += d.toString()));
-
-    proc.on("error", (e) => {
-      console.error(`[gmail] Failed to spawn gog for thread fetch: ${e.message}`);
-      resolve(null);
-    });
-
-    proc.on("close", (code) => {
-      if (code !== 0) {
-        console.error(`[gmail] gog thread get failed (code ${code}): ${stderr}`);
-        resolve(null);
-        return;
-      }
-      try {
-        const parsed = JSON.parse(stdout);
-        resolve(parseGogThreadOutput(parsed));
-      } catch (e) {
-        console.error(`[gmail] Failed to parse thread JSON: ${e}`);
-        resolve(null);
-      }
-    });
-
-    // Timeout after 15s
-    setTimeout(() => {
-      proc.kill();
-      console.error(`[gmail] gog thread get timed out`);
-      resolve(null);
-    }, 15000);
-  });
-}
-
-/**
  * Format a date string for the quote header
  */
 function formatQuoteDate(dateStr: string): string {
@@ -272,9 +226,9 @@ export function buildQuotedThread(
 export async function fetchQuotedContext(
   threadId: string,
   accountEmail: string,
-  accountArg?: string
+  client: GmailClient,
 ): Promise<QuotedContent | null> {
-  const thread = await fetchThread(threadId, accountArg);
+  const thread = await client.getThread(threadId, { full: true });
   if (!thread || !thread.messages || thread.messages.length === 0) {
     return null;
   }
