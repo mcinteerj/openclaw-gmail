@@ -27,7 +27,7 @@ import { createGmailClient, type GmailClient } from "./gmail-client.js";
 import crypto from "node:crypto";
 
 const meta = {
-  id: "gmail",
+  id: "openclaw-gmail",
   label: "Gmail",
   selectionLabel: "Gmail",
   detailLabel: "Gmail",
@@ -71,8 +71,8 @@ function buildGmailMsgContext(
     ConversationLabel: threadLabel,
     SenderName: msg.sender.name,
     SenderId: msg.sender.id,
-    Provider: "gmail" as const,
-    Surface: "gmail" as const,
+    Provider: "openclaw-gmail" as const,
+    Surface: "openclaw-gmail" as const,
     MessageSid: msg.channelMessageId,
     ReplyToId: msg.channelMessageId,
     ThreadLabel: threadLabel,
@@ -83,7 +83,7 @@ function buildGmailMsgContext(
     MediaType: msg.mediaType,
     MediaUrl: msg.mediaUrl,
     CommandAuthorized: false,
-    OriginatingChannel: "gmail" as const,
+    OriginatingChannel: "openclaw-gmail" as const,
     OriginatingTo: msg.threadId,
   });
 
@@ -105,7 +105,7 @@ async function dispatchGmailMessage(
 
       // Build the dispatch context
       const ctxPayload = buildGmailMsgContext(msg, account, cfg);
-      const gmailCfg = cfg.channels?.gmail as GmailConfig | undefined;
+      const gmailCfg = cfg.channels?.["openclaw-gmail"] as GmailConfig | undefined;
 
       // Build reply dispatcher options using gateway's reply capability
       const deliver = async (payload: { text: string }) => {

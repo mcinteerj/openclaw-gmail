@@ -76,7 +76,7 @@ export function parseInboundGmail(payload: GogPayload, accountId?: string): Inbo
   const fullText = `[Thread Context: ID=${payload.threadId}, Subject="${subject}"]\n\n${finalText}${attachmentContext}`;
 
   return {
-    channelId: "gmail",
+    channelId: "openclaw-gmail",
     accountId,
     channelMessageId: payload.id,
     threadId: payload.threadId,
@@ -138,7 +138,7 @@ export function parseSearchGmail(msg: GogSearchMessage, accountId?: string, acco
   const fullText = `[Thread Context: ID=${msg.threadId}, Subject="${subject}"]\n\n${finalText}`;
 
   return {
-    channelId: "gmail",
+    channelId: "openclaw-gmail",
     accountId,
     channelMessageId: msg.id,
     threadId: msg.threadId,

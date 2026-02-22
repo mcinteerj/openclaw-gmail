@@ -7,7 +7,7 @@ import { readGogCredentials, runOAuthFlow, createOAuth2Client } from "./auth.js"
 import { ApiGmailClient } from "./api-client.js";
 
 const execAsync = promisify(exec);
-const channel = "gmail" as const;
+const channel = "openclaw-gmail" as const;
 
 const MIN_GOG_VERSION = "1.2.0";
 
@@ -92,7 +92,7 @@ export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
   getStatus: async ({ cfg }: { cfg: OpenClawConfig }) => {
     const ids = listGmailAccountIds(cfg);
     const configured = ids.length > 0;
-    const gmailConfig = (cfg.channels as any)?.gmail || {};
+    const gmailConfig = (cfg.channels as any)?.["openclaw-gmail"] || {};
     const accounts = gmailConfig.accounts || {};
     const backends = new Set(
       Object.values(accounts).map((a: any) => a.backend || "gog"),
@@ -128,7 +128,7 @@ export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
   }) => {
     // --- Account selection (unchanged) ---
     const existingIds = listGmailAccountIds(cfg);
-    const gmailOverride = accountOverrides.gmail?.trim();
+    const gmailOverride = (accountOverrides["openclaw-gmail"] ?? accountOverrides.gmail)?.trim();
     const defaultAccountId = resolveDefaultGmailAccountId(cfg);
     let accountId = gmailOverride || defaultAccountId;
 
@@ -154,7 +154,7 @@ export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
     if (!email) throw new Error("Email required");
 
     // --- Detect available auth sources ---
-    const gmailConfig = (cfg.channels as any)?.gmail || {};
+    const gmailConfig = (cfg.channels as any)?.["openclaw-gmail"] || {};
     const existingAccount = gmailConfig.accounts?.[email];
     const existingOAuth = existingAccount?.oauth;
     const gogInstalled = await checkGogInstalled();
@@ -330,7 +330,7 @@ export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
       ...cfg,
       channels: {
         ...cfg.channels,
-        gmail: {
+        "openclaw-gmail": {
           dmPolicy: "allowlist",
           archiveOnReply: true,
           ...gmailConfig,
@@ -349,7 +349,7 @@ export const gmailOnboardingAdapter: ChannelOnboardingAdapter = {
     ...cfg,
     channels: {
       ...cfg.channels,
-      gmail: { ...cfg.channels?.gmail, enabled: false },
+      "openclaw-gmail": { ...(cfg.channels as any)?.["openclaw-gmail"], enabled: false },
     },
   }),
 };

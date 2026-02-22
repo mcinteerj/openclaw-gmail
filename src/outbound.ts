@@ -18,7 +18,7 @@ export interface GmailOutboundContext extends OutboundContext {
 export async function sendGmailText(ctx: GmailOutboundContext) {
   const { to, text, accountId, cfg, threadId, replyToId, subject: explicitSubject, client } = ctx;
   const account = resolveGmailAccount(cfg, accountId);
-  const gmailCfg = cfg.channels?.gmail as GmailConfig | undefined;
+  const gmailCfg = cfg.channels?.["openclaw-gmail"] as GmailConfig | undefined;
 
   // Validate we have a target - prioritize threadId if it's valid
   const effectiveThreadId = isGmailThreadId(String(threadId)) ? String(threadId) : undefined;
