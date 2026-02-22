@@ -4,7 +4,7 @@ import sanitizeHtml from "sanitize-html";
 import { type OutboundContext, type OpenClawConfig } from "openclaw/plugin-sdk";
 import { resolveGmailAccount } from "./accounts.js";
 import { isGmailThreadId } from "./normalize.js";
-import { fetchQuotedContext } from "./quoting.js";
+import { fetchQuotedContext, type QuotedContent } from "./quoting.js";
 import { validateThreadReply, isEmailAllowed } from "./outbound-check.js";
 import type { GmailConfig } from "./config.js";
 
@@ -77,11 +77,9 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
     ?? gmailCfg?.defaults?.threadReplyPolicy 
     ?? "open"; // Default: open for backwards compatibility
 
-  // Build the body, potentially with quoted thread context
-  let body = text;
   const subject = explicitSubject || "(no subject)";
-
   const isThread = isGmailThreadId(toValue);
+  let quotedContent: QuotedContent | null = null;
 
   // Validate outbound recipients
   if (isThread && threadReplyPolicy !== "open" && account.email) {
@@ -123,17 +121,14 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
       args.push("--subject", subject);
       args.push("--reply-all");
 
-      // Fetch and append quoted thread context if enabled
+      // Fetch quoted thread context if enabled
       if (includeQuotedReplies && account.email) {
         try {
-          const quotedContext = await fetchQuotedContext(
+          quotedContent = await fetchQuotedContext(
             toValue,
             account.email,
             account.email
           );
-          if (quotedContext) {
-            body = `${text}\n\n${quotedContext}`;
-          }
         } catch (err) {
           // Non-fatal: proceed without quoted context
           console.error(`[gmail] Failed to fetch quoted context: ${err}`);
@@ -141,21 +136,38 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
       }
   }
 
-  // Convert body to HTML and sanitize
+  // Convert reply text to HTML (quotes are handled separately to avoid markdown mangling)
   try {
-      const rawHtml = await marked.parse(body);
-      const cleanHtml = sanitizeHtml(rawHtml, {
+      const rawHtml = await marked.parse(text);
+      const replyHtml = sanitizeHtml(rawHtml, {
           allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
           allowedAttributes: {
               ...sanitizeHtml.defaults.allowedAttributes,
               '*': ['style', 'class']
           }
       });
-      args.push("--body-html", cleanHtml);
-      args.push("--body", body);
+
+      // Build Gmail-style blockquote HTML for the quoted content
+      let fullHtml = replyHtml;
+      let plainBody = text;
+      if (quotedContent) {
+        fullHtml += `<div class="gmail_quote">` +
+          `<div dir="ltr" class="gmail_attr">${sanitizeHtml(quotedContent.header, { allowedTags: [], allowedAttributes: {} })}</div>` +
+          `<blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">` +
+          `${quotedContent.bodyHtml}` +
+          `</blockquote></div>`;
+        plainBody = `${text}\n\n${quotedContent.header}\n\n${quotedContent.bodyPlain}`;
+      }
+
+      args.push("--body-html", fullHtml);
+      args.push("--body", plainBody);
   } catch (err) {
       console.error("Markdown parsing or sanitization failed, sending plain text", err);
-      args.push("--body", body);
+      let plainBody = text;
+      if (quotedContent) {
+        plainBody = `${text}\n\n${quotedContent.header}\n\n${quotedContent.bodyPlain}`;
+      }
+      args.push("--body", plainBody);
   }
 
   await spawnGog(args);

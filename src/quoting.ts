@@ -1,4 +1,11 @@
 import { spawn } from "node:child_process";
+import sanitizeHtml from "sanitize-html";
+
+export interface QuotedContent {
+  header: string;        // "On Mon, Feb 22, 2026 at 2:15 PM, John Doe wrote:"
+  bodyHtml: string;      // Sanitized HTML from original message
+  bodyPlain: string;     // Plain text from original message (with > prefix)
+}
 
 export interface ThreadMessage {
   id: string;
@@ -9,6 +16,7 @@ export interface ThreadMessage {
   cc?: string;
   subject: string;
   body: string;
+  bodyHtml: string;
   labels: string[];
 }
 
@@ -68,6 +76,22 @@ function extractBody(msg: GogRawMessage): string {
 }
 
 /**
+ * Extract HTML body from gog message
+ */
+function extractHtmlBody(msg: GogRawMessage): string {
+  if (msg.payload.parts) {
+    const htmlPart = msg.payload.parts.find((p) => p.mimeType === "text/html");
+    if (htmlPart?.body?.data) {
+      return Buffer.from(htmlPart.body.data, "base64").toString("utf-8");
+    }
+  }
+  if (msg.payload.body?.data) {
+    return Buffer.from(msg.payload.body.data, "base64").toString("utf-8");
+  }
+  return "";
+}
+
+/**
  * Convert gog raw message to our ThreadMessage format
  */
 function parseGogMessage(raw: GogRawMessage): ThreadMessage {
@@ -75,6 +99,7 @@ function parseGogMessage(raw: GogRawMessage): ThreadMessage {
   const date = getHeader(raw, "Date") || new Date(parseInt(raw.internalDate)).toISOString();
   const subject = getHeader(raw, "Subject") || "";
   const body = extractBody(raw);
+  const bodyHtml = extractHtmlBody(raw);
 
   return {
     id: raw.id,
@@ -83,6 +108,7 @@ function parseGogMessage(raw: GogRawMessage): ThreadMessage {
     from,
     subject,
     body,
+    bodyHtml,
     labels: raw.labelIds || [],
   };
 }
@@ -176,21 +202,37 @@ function extractSenderDisplay(from: string): string {
 }
 
 /**
- * Include message body as-is (flat, no ">" prefix to avoid staggered indentation)
+ * Prefix each line with "> " for plain text quoting
  */
 function quoteBody(body: string): string {
-  return body;
+  return body.split("\n").map((line) => `> ${line}`).join("\n");
+}
+
+/**
+ * Sanitize HTML for safe embedding in a blockquote.
+ * Preserves formatting (bold, links, lists) while removing dangerous content.
+ */
+function sanitizeQuoteHtml(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "span", "div", "br", "hr"]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      "*": ["style", "class", "dir"],
+    },
+  });
 }
 
 /**
  * Build quoted context from the most recent non-self message.
  * Gmail standard: only quote the last message (which itself contains older quotes).
  * This avoids nested/staggered quoting.
+ *
+ * Returns structured QuotedContent for separate HTML and plain text rendering.
  */
 export function buildQuotedThread(
   messages: ThreadMessage[],
   accountEmail: string
-): string {
+): QuotedContent | null {
   // Filter out messages from the account itself
   const otherMessages = messages.filter((msg) => {
     const emailMatch = msg.from.match(/<(.*)>/);
@@ -199,7 +241,7 @@ export function buildQuotedThread(
   });
 
   if (otherMessages.length === 0) {
-    return "";
+    return null;
   }
 
   // Only quote the most recent message from others (last in array = newest)
@@ -207,23 +249,29 @@ export function buildQuotedThread(
   const sender = extractSenderDisplay(lastMsg.from);
   const date = formatQuoteDate(lastMsg.date);
   const header = `On ${date}, ${sender} wrote:`;
-  const quoted = quoteBody(lastMsg.body.trim());
 
-  return `${header}\n\n${quoted}`;
+  // HTML: sanitize original HTML body, fall back to plain text
+  const rawHtml = lastMsg.bodyHtml || lastMsg.body;
+  const bodyHtml = sanitizeQuoteHtml(rawHtml);
+
+  // Plain text: prefix each line with >
+  const bodyPlain = quoteBody(lastMsg.body.trim());
+
+  return { header, bodyHtml, bodyPlain };
 }
 
 /**
  * Fetch and format quoted context for a thread reply.
- * Returns the formatted quote block or empty string if unavailable.
+ * Returns structured QuotedContent or null if unavailable.
  */
 export async function fetchQuotedContext(
   threadId: string,
   accountEmail: string,
   accountArg?: string
-): Promise<string> {
+): Promise<QuotedContent | null> {
   const thread = await fetchThread(threadId, accountArg);
   if (!thread || !thread.messages || thread.messages.length === 0) {
-    return "";
+    return null;
   }
 
   return buildQuotedThread(thread.messages, accountEmail);
