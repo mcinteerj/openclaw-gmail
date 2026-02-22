@@ -1,117 +1,145 @@
-# Gmail Channel (Plugin)
+# openclaw-gmail
 
-Connects Moltbot to Gmail via the `gog` CLI.
+Gmail channel plugin for [OpenClaw](https://github.com/openclaw/openclaw). Supports two backends:
+
+- **API** (recommended) — connects directly via the Gmail API using OAuth2. No external CLI needed.
+- **gog** — shells out to the [gog CLI](https://github.com/jay/gog). The original backend, still fully supported.
+
+Both backends coexist — you can run different accounts on different backends.
 
 ## Installation
 
-This is a plugin. To install from source:
+```bash
+openclaw plugins install @mcinteerj/openclaw-gmail
+```
+
+Or from a local clone:
 
 ```bash
-moltbot plugins install ./extensions/gmail
+openclaw plugins install --link /path/to/openclaw-gmail
 ```
 
-## Features
+Requires `openclaw >= 2026.1.0`.
 
-- **Polling-based sync**: Robustly fetches new unread emails from Inbox.
-- **Circuit Breaker**: Handles API failures and rate limiting gracefully.
-- **Rich Text**: Markdown support for outbound emails.
-- **Threading**: Native Gmail thread support with quoted reply context.
-- **Archiving**: Automatically archives threads upon reply.
-- **Email Body Sanitisation**: Automatically cleans incoming email bodies for LLM consumption.
+## Setup
 
-## Email Body Sanitisation
+### Option 1: API backend (recommended)
 
-Incoming emails are automatically sanitised to produce clean, readable text — no configuration needed.
+The API backend connects directly to Gmail — no gog CLI required.
 
-### What It Does
+**If you have gog installed**, the onboarding flow will detect your existing OAuth client credentials from `~/.config/gogcli/credentials.json` and reuse them. You only need a one-time browser authorization to get a new refresh token.
 
-- **HTML-to-text conversion**: Strips tags, removes `<style>` and `<script>` blocks, filters out tracking pixels, and decodes HTML entities.
-- **Footer junk removal**: Strips common noise like unsubscribe links, "Sent from my iPhone", and confidentiality notices.
-- **Whitespace cleanup**: Collapses excessive blank lines and trims leading/trailing whitespace.
-- **Signature stripping**: Removes content below `-- ` signature separators by default.
+**If you don't have gog**, you'll need to create a GCP OAuth client:
 
-### Configurable Signature Stripping
+1. Go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
+2. Create a project (or use an existing one)
+3. Enable the Gmail API
+4. Create an OAuth 2.0 Client ID (type: **Desktop app**)
+5. Copy the Client ID and Client Secret
 
-Signature stripping is enabled by default. If you need to preserve content after `--` separators (e.g. for emails where dashes appear in the body), you can disable it programmatically:
+Then run `openclaw configure`, select Gmail, and follow the prompts. The flow will:
+- Ask for your email address
+- Prompt for client credentials (or reuse gog's)
+- Open a browser for OAuth consent
+- Store the refresh token in your OpenClaw config
+- Set `backend: "api"` on the account
 
-```ts
-extractTextBody(html, plain, { stripSignature: false })
-```
-
-No plugin configuration is required — sanitisation runs automatically on every inbound message.
-
-## Reply Behavior
-
-- **Reply All**: When the bot replies to a thread, it uses "Reply All" to ensure all participants are included.
-- **Quoted Replies**: By default, replies include the full thread history as quoted text (standard Gmail format: "On [date], [author] wrote:"). This can be disabled per-account or globally.
-- **Allowlist Gatekeeping**: The bot only responds to emails from senders on the `allowFrom` list. However, if an allowed user includes others (CC) who are *not* on the allowlist, the bot will still "Reply All", including them in the conversation. This allows authorized users to bring others into the loop.
-- **Outbound Restrictions** (optional): Use `allowOutboundTo` and `threadReplyPolicy` to control who the bot can send emails to. By default, no outbound restrictions are applied (backwards compatible).
-
-## Configuration
-
-Add to `moltbot.json`:
+**Manual config** (if you prefer to skip the wizard):
 
 ```json5
 {
   "channels": {
-    "gmail": {
+    "openclaw-gmail": {
       "accounts": {
-        "main": {
-          "email": "user@gmail.com",
+        "you@gmail.com": {
+          "email": "you@gmail.com",
+          "backend": "api",
+          "oauth": {
+            "clientId": "your-client-id.apps.googleusercontent.com",
+            "clientSecret": "your-client-secret",
+            "refreshToken": "your-refresh-token"
+          },
           "allowFrom": ["*"],
-          "includeQuotedReplies": true,  // default: true
-          // Optional: restrict who the bot can send emails TO
-          "allowOutboundTo": ["@mycompany.com", "partner@example.com"],
-          "threadReplyPolicy": "allowlist"  // default: "open"
+          "pollIntervalMs": 60000
         }
-      },
-      "defaults": {
-        "includeQuotedReplies": true  // global default
       }
     }
   }
 }
 ```
 
-### Configuration Options
+### Option 2: gog backend
+
+Install the [gog CLI](https://github.com/jay/gog) (v1.2.0+), authorize it (`gog auth add you@gmail.com`), then run `openclaw configure`. The account will use gog by default (no `backend` field needed).
+
+### Upgrading from gog to API
+
+Existing gog users upgrading the plugin will continue working with no changes — gog remains the default. To migrate an account to the API backend:
+
+1. Run `openclaw configure` → select Gmail
+2. The wizard detects your gog credentials and offers migration
+3. Authorize in the browser (one-time, ~10 seconds)
+4. Done — your account now uses the API directly
+
+Your gog installation is not affected and other accounts can continue using it.
+
+## Features
+
+- **Polling-based sync**: Fetches new unread emails from Inbox
+- **Rich text**: Markdown responses are converted to HTML emails via `marked`
+- **Threading**: Native Gmail thread support with quoted reply context
+- **Reply All**: Replies include all thread participants
+- **Archiving**: Automatically archives threads upon reply
+- **Email body sanitization**: Cleans incoming HTML for LLM consumption
+- **Circuit breaker** (gog backend): Handles API failures and rate limiting
+- **MIME construction** (API backend): Builds RFC 2822 messages with proper threading headers
+
+## Configuration
+
+```json5
+{
+  "channels": {
+    "openclaw-gmail": {
+      "accounts": {
+        "you@gmail.com": {
+          "email": "you@gmail.com",
+          "allowFrom": ["*"],
+          "pollIntervalMs": 60000,
+          "includeQuotedReplies": true,        // default: true
+          "allowOutboundTo": ["@company.com"],  // optional
+          "threadReplyPolicy": "allowlist"      // default: "open"
+        }
+      },
+      "defaults": {
+        "includeQuotedReplies": true
+      }
+    }
+  }
+}
+```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `includeQuotedReplies` | boolean | `true` | Include thread history as quoted text in replies. Set to `false` for cleaner, shorter replies. |
-| `allowOutboundTo` | string[] | (falls back to `allowFrom`) | Restrict who the bot can send emails to. Supports exact emails and domain wildcards (e.g., `@company.com`). |
-| `threadReplyPolicy` | string | `"open"` | Controls thread reply behavior: `"open"` (no restrictions), `"allowlist"` (all recipients must be in `allowOutboundTo`), or `"sender-only"` (only original thread sender checked). |
+| `backend` | `"api"` \| `"gog"` | `"gog"` | Which backend to use for this account |
+| `oauth` | object | — | OAuth credentials (required for API backend) |
+| `allowFrom` | string[] | `[]` | Sender allowlist. `["*"]` allows all. |
+| `pollIntervalMs` | number | `60000` | Polling interval in milliseconds |
+| `includeQuotedReplies` | boolean | `true` | Include thread history as quoted text in replies |
+| `allowOutboundTo` | string[] | (falls back to `allowFrom`) | Restrict who the bot can send to. Supports domain wildcards (`@company.com`). |
+| `threadReplyPolicy` | `"open"` \| `"allowlist"` \| `"sender-only"` | `"open"` | Controls reply restrictions |
 
 ### Thread Reply Policies
 
-- **`open`** (default): No outbound restrictions. The bot can reply to any thread it was BCCd into. Backwards compatible.
-- **`allowlist`**: All thread participants (To, CC, From) must be in `allowOutboundTo`. Blocks replies if *any* recipient is not allowed.
-- **`sender-only`**: Only checks if the original thread sender is in `allowOutboundTo`. Useful when you want to reply to threads started by allowed users, even if they CC'd external parties.
+- **`open`** (default): No outbound restrictions. Backwards compatible.
+- **`allowlist`**: All thread participants must be in `allowOutboundTo`.
+- **`sender-only`**: Only checks if the original thread sender is allowed.
 
 ## Development
 
-Run tests:
 ```bash
-npm test
-# or
-./node_modules/.bin/vitest run src/
+npx vitest run
 ```
 
 ## Publishing
 
-This repo includes a GitHub Actions workflow for npm publishing.
-
-### Automatic (on release)
-Create a GitHub release → automatically publishes to npm.
-
-### Manual (workflow dispatch)
-Go to Actions → "Publish to npm" → Run workflow.
-
-**Note:** Manual dispatch will:
-1. Bump the version (patch by default, or specify major/minor)
-2. Commit and push the version bump with a tag
-3. Publish to npm
-
-### Setup
-Add `NPM_TOKEN` secret to the repository:
-1. Generate token at npmjs.com → Access Tokens → Classic Token (Automation)
-2. Add to repo: Settings → Secrets → Actions → New repository secret
+Create a GitHub release or run the "Publish to npm" workflow via Actions.
