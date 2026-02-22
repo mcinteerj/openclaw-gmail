@@ -141,5 +141,5 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
     });
   }
 
-  return { id: "sent" };
+  return { channel: "openclaw-gmail", messageId: "sent" };
 }

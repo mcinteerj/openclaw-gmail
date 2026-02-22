@@ -255,6 +255,13 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
       const client = (emailKey && activeClients.get(emailKey)) || createGmailClient(account, ctx.cfg);
       return sendGmailText({ ...ctx, client });
     },
+    sendMedia: (ctx: any) => {
+      const account = resolveGmailAccount(ctx.cfg, ctx.accountId);
+      const emailKey = account.email?.toLowerCase();
+      const client = (emailKey && activeClients.get(emailKey)) || createGmailClient(account, ctx.cfg);
+      const text = [ctx.text, ctx.mediaUrl].filter(Boolean).join("\n\n");
+      return sendGmailText({ ...ctx, text, client });
+    },
     resolveTarget: ({ to, allowFrom }) => {
       const trimmed = to?.trim() ?? "";
       const normalized = normalizeGmailTarget(trimmed);
