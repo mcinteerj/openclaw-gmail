@@ -317,8 +317,10 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
         "### Attachments",
         "- **Location**: All attachments are stored in \`.attachments/{{threadId}}/\` relative to your workspace.",
         "- **Auto-Download**: Files under 5MB are already there. The message text contains their paths.",
-        "- **Manual Download**: For larger files (listed with an ID), download them to that same folder:",
-        `- Command: \`mkdir -p .attachments/{{threadId}} && gog gmail attachment <messageId> <attachmentId> --account ${account.email} --out .attachments/{{threadId}}/<filename>\``,
+        "- **Manual Download**: For larger files (listed with an ID), download them to that same folder.",
+        ...(account.backend === "api"
+          ? ["- The attachment download tool is available as part of the Gmail API client."]
+          : [`- Command: \`mkdir -p .attachments/{{threadId}} && gog gmail attachment <messageId> <attachmentId> --account ${account.email} --out .attachments/{{threadId}}/<filename>\``]),
       ];
     },
   },
