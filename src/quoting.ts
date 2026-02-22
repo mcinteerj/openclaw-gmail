@@ -26,8 +26,8 @@ export interface ThreadResponse {
   messages: ThreadMessage[];
 }
 
-// Raw gog output types
-interface GogThreadOutput {
+// Raw gog output types — exported for use by GogGmailClient
+export interface GogThreadOutput {
   downloaded: unknown;
   thread: {
     id: string;
@@ -36,7 +36,7 @@ interface GogThreadOutput {
   };
 }
 
-interface GogRawMessage {
+export interface GogRawMessage {
   id: string;
   threadId: string;
   internalDate: string;
@@ -114,6 +114,21 @@ function parseGogMessage(raw: GogRawMessage): ThreadMessage {
 }
 
 /**
+ * Parse raw gog thread JSON into a ThreadResponse.
+ * Extracted from fetchThread() so GogGmailClient can reuse it.
+ */
+export function parseGogThreadOutput(data: unknown): ThreadResponse | null {
+  const parsed = data as GogThreadOutput;
+  const thread = parsed?.thread;
+  if (!thread || !thread.messages) return null;
+  return {
+    id: thread.id,
+    historyId: thread.historyId,
+    messages: thread.messages.map(parseGogMessage),
+  };
+}
+
+/**
  * Fetch thread data from gog CLI
  */
 async function fetchThread(threadId: string, account?: string): Promise<ThreadResponse | null> {
@@ -142,18 +157,8 @@ async function fetchThread(threadId: string, account?: string): Promise<ThreadRe
         return;
       }
       try {
-        const parsed = JSON.parse(stdout) as GogThreadOutput;
-        // gog wraps the thread in { downloaded, thread }
-        const thread = parsed.thread;
-        if (!thread || !thread.messages) {
-          resolve(null);
-          return;
-        }
-        resolve({
-          id: thread.id,
-          historyId: thread.historyId,
-          messages: thread.messages.map(parseGogMessage),
-        });
+        const parsed = JSON.parse(stdout);
+        resolve(parseGogThreadOutput(parsed));
       } catch (e) {
         console.error(`[gmail] Failed to parse thread JSON: ${e}`);
         resolve(null);

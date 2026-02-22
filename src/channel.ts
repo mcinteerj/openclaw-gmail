@@ -188,6 +188,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
               historyId: { type: "string" },
               delegate: { type: "string" },
               archiveOnReply: { type: "boolean", default: true },
+              backend: { type: "string", enum: ["gog", "api"] },
             },
             required: ["email"],
           },

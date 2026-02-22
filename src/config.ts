@@ -16,6 +16,7 @@ export const GmailAccountSchema = z.object({
   allowOutboundTo: z.array(z.string()).optional(), // Who we can SEND to (if not set, falls back to allowFrom)
   threadReplyPolicy: z.enum(["open", "allowlist", "sender-only"]).optional(), // Default: "open" for backwards compat
   archiveOnReply: z.boolean().optional(), // Archive thread after reply (default: true)
+  backend: z.enum(["gog", "api"]).optional(), // Gmail backend: gog CLI (default) or googleapis
 });
 
 export const GmailConfigSchema = z.object({
