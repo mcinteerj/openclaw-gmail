@@ -153,7 +153,7 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
     ?? true;
   if (isThread && archiveOnReply) {
     // Best effort archive
-    client.modifyLabels(toValue, { remove: ["INBOX"] }).catch((err) => {
+    client.modifyThreadLabels(toValue, { remove: ["INBOX"] }).catch((err) => {
       console.error(`Failed to archive thread ${toValue}: ${err instanceof Error ? err.message : String(err)}`);
     });
   }
