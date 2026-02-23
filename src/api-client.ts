@@ -85,25 +85,46 @@ export class ApiGmailClient implements GmailClient {
     if (!thread || thread.messages.length === 0) return null;
 
     const lastMsg = thread.messages[thread.messages.length - 1];
+    const selfLower = selfEmail.toLowerCase();
 
-    // Resolve To: reply to the sender of the last message
-    const to = lastMsg.from;
+    // Determine if the last message is from self
+    const fromAddresses = parseEmailAddresses(lastMsg.from);
+    const lastMsgIsFromSelf = fromAddresses.some(
+      (a) => a.email.toLowerCase() === selfLower,
+    );
 
-    // For reply-all, Cc = everyone from To + Cc minus self and the new To
+    // Resolve To:
+    // - If last message is from someone else: reply to that sender (standard reply)
+    // - If last message is from self: reply to the recipients of that message (matches Gmail client)
+    let to: string;
+    if (lastMsgIsFromSelf) {
+      to = lastMsg.to || "";
+    } else {
+      to = lastMsg.from;
+    }
+
+    // For reply-all, build CC from the last message's To + CC, minus self and the new To
     let cc: string | undefined;
     if (replyAll) {
-      const selfLower = selfEmail.toLowerCase();
       const toAddresses = parseEmailAddresses(to);
-      const toLower = new Set(toAddresses.map((a) => a.email.toLowerCase()));
+      const seen = new Set(toAddresses.map((a) => a.email.toLowerCase()));
+      seen.add(selfLower); // always exclude self
 
       const ccCandidates: string[] = [];
-      for (const field of [lastMsg.to, lastMsg.cc]) {
+
+      // When replying to own message: lastMsg.to is already the new To, so CC from lastMsg.cc only
+      // When replying to other's message: lastMsg.from is the new To, so CC from lastMsg.to + lastMsg.cc
+      const ccSources = lastMsgIsFromSelf
+        ? [lastMsg.cc]
+        : [lastMsg.to, lastMsg.cc];
+
+      for (const field of ccSources) {
         if (!field) continue;
         const addresses = parseEmailAddresses(field);
         for (const addr of addresses) {
-          if (addr.email.toLowerCase() !== selfLower && !toLower.has(addr.email.toLowerCase())) {
+          if (!seen.has(addr.email.toLowerCase())) {
             ccCandidates.push(addr.name ? `${addr.name} <${addr.email}>` : addr.email);
-            toLower.add(addr.email.toLowerCase()); // dedupe
+            seen.add(addr.email.toLowerCase()); // dedupe
           }
         }
       }

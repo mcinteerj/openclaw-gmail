@@ -43,9 +43,25 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
     ?? gmailCfg?.defaults?.threadReplyPolicy
     ?? "open"; // Default: open for backwards compatibility
 
-  const subject = explicitSubject || "(no subject)";
   const isThread = isGmailThreadId(toValue);
   let quotedContent: QuotedContent | null = null;
+
+  // Resolve subject: use explicit, or look up from thread, or fallback
+  let subject = explicitSubject;
+  if (!subject && isThread) {
+    try {
+      const thread = await client.getThread(toValue, { full: false });
+      if (thread && thread.messages.length > 0) {
+        const origSubject = thread.messages[0].subject;
+        if (origSubject) {
+          subject = origSubject.toLowerCase().startsWith("re:") ? origSubject : `Re: ${origSubject}`;
+        }
+      }
+    } catch {
+      // Non-fatal: fall through to default
+    }
+  }
+  subject = subject || "(no subject)";
 
   // Validate outbound recipients
   if (isThread && threadReplyPolicy !== "open" && account.email) {
@@ -119,7 +135,7 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
     }
   }
 
-  await client.send({
+  const sendParams = {
     account: account.email,
     to: isThread ? undefined : toValue,
     subject,
@@ -128,7 +144,8 @@ export async function sendGmailText(ctx: GmailOutboundContext) {
     threadId: isThread ? toValue : undefined,
     replyToMessageId: replyToId ? String(replyToId) : undefined,
     replyAll: isThread,
-  });
+  };
+  await client.send(sendParams);
 
   // Archive if it was a thread (Reply = Archive), unless disabled by config
   const archiveOnReply = accountCfg?.archiveOnReply
