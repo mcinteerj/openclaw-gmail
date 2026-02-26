@@ -150,6 +150,20 @@ async function dispatchGmailMessage(
         },
       });
       log?.info(`[gmail][${requestId}] Dispatch complete for ${msg.channelMessageId}`);
+
+      // Archive thread after dispatch completes (whether agent replied or not).
+      // This ensures "no reply" emails also leave the inbox, matching the
+      // archiveOnReply behavior for emails that do get a reply.
+      const gmailAcctCfg = (cfg.channels?.["openclaw-gmail"] as GmailConfig | undefined)?.accounts?.[account.email];
+      const gmailDefaults = (cfg.channels?.["openclaw-gmail"] as GmailConfig | undefined)?.defaults;
+      const shouldArchive = gmailAcctCfg?.archiveOnReply
+        ?? (gmailDefaults as any)?.archiveOnReply
+        ?? true;
+      if (msg.threadId && shouldArchive) {
+        client.modifyThreadLabels(msg.threadId, { remove: ["INBOX"] }).catch((err) => {
+          log?.error(`[gmail][${requestId}] Failed to archive thread ${msg.threadId}: ${err instanceof Error ? err.message : String(err)}`);
+        });
+      }
     } catch (e: unknown) {
       log?.error(`[gmail][${requestId}] Dispatch failed: ${e instanceof Error ? e.message : String(e)}`);
     }
