@@ -36,6 +36,15 @@ export interface GogThreadOutput {
   };
 }
 
+export interface GogRawMessagePart {
+  partId?: string;
+  mimeType: string;
+  filename?: string;
+  headers?: { name: string; value: string }[];
+  body?: { size?: number; data?: string; attachmentId?: string };
+  parts?: GogRawMessagePart[];
+}
+
 export interface GogRawMessage {
   id: string;
   threadId: string;
@@ -43,8 +52,8 @@ export interface GogRawMessage {
   labelIds: string[];
   payload: {
     headers: { name: string; value: string }[];
-    parts?: { body?: { data?: string }; mimeType: string }[];
-    body?: { data?: string };
+    parts?: GogRawMessagePart[];
+    body?: { size?: number; data?: string; attachmentId?: string };
   };
 }
 

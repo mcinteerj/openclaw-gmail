@@ -319,6 +319,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
         "- Work silently; send ONE reply when complete. For long-running tasks, notify before starting or after completing.",
         "",
         "### Gmail Messaging",
+        "- **Reactions**: Gmail emoji reactions (e.g. 👍, ❤️) appear as emails but generally don't need a reply. Unless the context clearly warrants a response, you can skip replying to reaction-only messages.",
         "- To reply to this email, just write your response normally as text in your turn. This will Reply All to everyone on the thread.",
         "- Your Markdown response is automatically converted to a rich HTML email using the `marked` library.",
         "- Headings, tables, and code blocks are fully supported.",

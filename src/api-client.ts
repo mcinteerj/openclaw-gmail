@@ -2,7 +2,7 @@ import { gmail as gmailApi, type gmail_v1 } from "@googleapis/gmail";
 import type { OAuth2Client } from "google-auth-library";
 import fs from "node:fs/promises";
 import type { GmailClient } from "./gmail-client.js";
-import type { ThreadResponse, GogRawMessage } from "./quoting.js";
+import type { ThreadResponse, GogRawMessage, GogRawMessagePart } from "./quoting.js";
 import type { GogSearchMessage } from "./inbound.js";
 import { buildMimeMessage } from "./mime.js";
 import { parseEmailAddresses } from "./outbound-check.js";
@@ -346,6 +346,23 @@ function mapApiMessage(msg: gmail_v1.Schema$Message): GogRawMessage {
   };
 }
 
+function mapPart(p: gmail_v1.Schema$MessagePart): GogRawMessagePart {
+  return {
+    partId: p.partId ?? undefined,
+    mimeType: p.mimeType!,
+    filename: p.filename ?? undefined,
+    headers: p.headers?.map((h) => ({ name: h.name!, value: h.value! })),
+    body: p.body
+      ? {
+          size: p.body.size ?? undefined,
+          data: p.body.data ?? undefined,
+          attachmentId: p.body.attachmentId ?? undefined,
+        }
+      : undefined,
+    parts: p.parts?.map(mapPart),
+  };
+}
+
 function mapPayload(
   p: gmail_v1.Schema$MessagePart,
 ): GogRawMessage["payload"] {
@@ -354,11 +371,14 @@ function mapPayload(
       name: h.name!,
       value: h.value!,
     })),
-    parts: p.parts?.map((part) => ({
-      body: part.body?.data ? { data: part.body.data } : undefined,
-      mimeType: part.mimeType!,
-    })),
-    body: p.body?.data ? { data: p.body.data } : undefined,
+    parts: p.parts?.map(mapPart),
+    body: p.body
+      ? {
+          size: p.body.size ?? undefined,
+          data: p.body.data ?? undefined,
+          attachmentId: p.body.attachmentId ?? undefined,
+        }
+      : undefined,
   };
 }
 
