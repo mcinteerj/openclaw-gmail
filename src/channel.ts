@@ -190,6 +190,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
               historyId: { type: "string" },
               delegate: { type: "string" },
               archiveOnReply: { type: "boolean", default: true },
+              includeThreadContext: { type: "boolean", default: false },
               backend: { type: "string", enum: ["gog", "api"] },
               oauth: {
                 type: "object",
@@ -209,6 +210,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
           properties: {
             allowFrom: { type: "array", items: { type: "string" } },
             archiveOnReply: { type: "boolean", default: true },
+            includeThreadContext: { type: "boolean", default: false },
           },
         },
       },

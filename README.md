@@ -106,12 +106,14 @@ Your gog installation is not affected and other accounts can continue using it.
           "allowFrom": ["*"],
           "pollIntervalMs": 60000,
           "includeQuotedReplies": true,        // default: true
+          "includeThreadContext": false,        // default: false
           "allowOutboundTo": ["@company.com"],  // optional
           "threadReplyPolicy": "allowlist"      // default: "open"
         }
       },
       "defaults": {
-        "includeQuotedReplies": true
+        "includeQuotedReplies": true,
+        "includeThreadContext": false
       }
     }
   }
@@ -125,6 +127,7 @@ Your gog installation is not affected and other accounts can continue using it.
 | `allowFrom` | string[] | `[]` | Sender allowlist. `["*"]` allows all. |
 | `pollIntervalMs` | number | `60000` | Polling interval in milliseconds |
 | `includeQuotedReplies` | boolean | `true` | Include thread history as quoted text in replies |
+| `includeThreadContext` | boolean | `false` | When an allowed sender replies in a thread containing messages from non-allowed senders, include those earlier messages as context. See [Thread Context](#thread-context). |
 | `allowOutboundTo` | string[] | (falls back to `allowFrom`) | Restrict who the bot can send to. Supports domain wildcards (`@company.com`). |
 | `threadReplyPolicy` | `"open"` \| `"allowlist"` \| `"sender-only"` | `"open"` | Controls reply restrictions |
 
@@ -133,6 +136,31 @@ Your gog installation is not affected and other accounts can continue using it.
 - **`open`** (default): No outbound restrictions. Backwards compatible.
 - **`allowlist`**: All thread participants must be in `allowOutboundTo`.
 - **`sender-only`**: Only checks if the original thread sender is allowed.
+
+### Thread Context
+
+When `includeThreadContext` is enabled, the plugin enriches inbound messages with prior thread history that the agent wouldn't otherwise see.
+
+**The problem:** If someone not on the allow list emails the agent, their message is quarantined (never seen). If an allowed sender then replies to that thread asking the agent to review it, the agent only sees the allowed sender's new message — the quoted content from the non-allowed sender is stripped during sanitization.
+
+**The solution:** With `includeThreadContext: true`, when an allowed sender's message arrives in a thread that contains earlier messages from non-allowed senders, those earlier messages are included as labelled context above the new message:
+
+```
+---
+**Thread context** (1 earlier message from senders not on your allow list):
+
+**From:** Hamish Smith <hamish@example.com>
+**Date:** Mon, 24 Feb 2026 10:30:00 +1300
+
+Hey Keith, can you book transfers for our Fiji trip?
+---
+
+[Thread Context: ID=abc123, Subject="Book Your Fast Fiji Transfers"]
+
+Keith, can you please review Hamish's request below and action it?
+```
+
+This is **disabled by default** to preserve the existing allow list behavior where non-allowed senders' content is never shown. Enable it per-account or in `defaults` when you want allowed senders to be able to surface thread context from outside the allow list.
 
 ## Development
 

@@ -10,6 +10,7 @@ export interface ResolvedGmailAccount extends ResolvedChannelAccount {
   historyId?: string;
   delegate?: string;
   pollIntervalMs?: number;
+  includeThreadContext?: boolean;
   backend?: "gog" | "api";
   oauth?: {
     clientId: string;
@@ -63,6 +64,8 @@ export function resolveGmailAccount(
     };
   }
 
+  const defaults = cfg.channels?.['openclaw-gmail']?.defaults;
+
   return {
     accountId: resolvedId,
     name: account.name || account.email,
@@ -72,6 +75,7 @@ export function resolveGmailAccount(
     delegate: account.delegate,
     allowFrom: account.allowFrom,
     pollIntervalMs: account.pollIntervalMs,
+    includeThreadContext: account.includeThreadContext ?? (defaults as any)?.includeThreadContext ?? false,
     backend: account.backend,
     oauth: account.oauth,
   };

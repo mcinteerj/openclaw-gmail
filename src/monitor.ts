@@ -9,6 +9,7 @@ import { extractAttachments } from "./attachments.js";
 import { isAllowed } from "./normalize.js";
 import type { GmailClient } from "./gmail-client.js";
 import { GogGmailClient } from "./gog-client.js";
+import { extractTextBody } from "./strip-quotes.js";
 
 // Polling interval: Default 60s, override via env for testing
 const DEFAULT_POLL_INTERVAL = 60_000;
@@ -51,6 +52,78 @@ async function markAsRead(id: string, threadId: string | undefined, log: Channel
     }
   } catch (err) {
     log.error(`Failed to mark ${id} as read: ${String(err)}`);
+  }
+}
+
+/**
+ * Enrich an inbound message with prior thread messages that Keith hasn't seen.
+ *
+ * When `includeThreadContext` is enabled and an allowed sender replies in a thread
+ * that contains earlier messages from non-allowed senders (which were quarantined),
+ * this fetches the full thread and prepends those unseen messages as context.
+ *
+ * This solves the case where e.g. Hamish (not allowed) emails, gets quarantined,
+ * then Laura (allowed) replies asking Keith to review — Keith now sees Hamish's
+ * message as thread context above Laura's new message.
+ */
+async function enrichWithThreadContext(
+  msg: InboundMessage,
+  account: ResolvedGmailAccount,
+  log: ChannelLogSink,
+  client: GmailClient,
+): Promise<InboundMessage> {
+  if (!account.includeThreadContext) return msg;
+  if (!msg.threadId) return msg;
+
+  try {
+    const thread = await client.getThread(msg.threadId, { full: true });
+    if (!thread?.messages || thread.messages.length <= 1) return msg;
+
+    const allowList = account.allowFrom || [];
+
+    // Find messages in the thread that Keith hasn't seen (from non-allowed senders)
+    // Exclude the current message itself
+    const unseenMessages = thread.messages.filter((threadMsg) => {
+      if (threadMsg.id === msg.channelMessageId) return false;
+
+      // Extract sender email
+      const fromMatch = threadMsg.from.match(/<(.*)>/);
+      const senderEmail = fromMatch ? fromMatch[1] : threadMsg.from;
+
+      // Skip messages from the account itself (Keith's own replies)
+      if (senderEmail.toLowerCase() === account.email.toLowerCase()) return false;
+
+      // Only include messages from senders NOT on the allow list
+      return !isAllowed(senderEmail, allowList);
+    });
+
+    if (unseenMessages.length === 0) return msg;
+
+    // Build context block from unseen messages (oldest first)
+    const contextLines = unseenMessages.map((threadMsg) => {
+      // Strip quotes from thread message body to avoid nested repetition
+      const cleanBody = extractTextBody(threadMsg.bodyHtml, threadMsg.body, { stripSignature: true });
+      const body = cleanBody || threadMsg.body || "(no content)";
+      return `**From:** ${threadMsg.from}\n**Date:** ${threadMsg.date}\n\n${body}`;
+    });
+
+    const contextBlock = [
+      "---",
+      `**Thread context** (${unseenMessages.length} earlier message${unseenMessages.length > 1 ? "s" : ""} from senders not on your allow list):`,
+      "",
+      ...contextLines.map((c, i) => i > 0 ? `---\n${c}` : c),
+      "---",
+      "",
+    ].join("\n");
+
+    // Prepend thread context before the current message text
+    return {
+      ...msg,
+      text: contextBlock + msg.text,
+    };
+  } catch (err) {
+    log.error(`Failed to enrich thread context for ${msg.threadId}: ${String(err)}`);
+    return msg; // Graceful fallback — dispatch without context
   }
 }
 
@@ -251,7 +324,7 @@ async function performFullSync(
 
             // To get attachments, we need the full message details (search --include-body only gives text)
             const fullMsg = await fetchMessageDetails(msg.channelMessageId, account, log, client, true);
-            const msgToDispatch = fullMsg || msg;
+            let msgToDispatch = fullMsg || msg;
 
             try {
                 // Auto-download small attachments
@@ -262,6 +335,9 @@ async function performFullSync(
                             downloadedPaths.map(p => `- \`${p}\``).join("\n");
                     }
                 }
+
+                // Enrich with thread context from non-allowed senders if enabled
+                msgToDispatch = await enrichWithThreadContext(msgToDispatch, account, log, client);
 
                 await onMessage(msgToDispatch);
 
