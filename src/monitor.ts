@@ -32,8 +32,28 @@ const dispatchedMessageIds = new Set<string>();
 // Clear cache periodically to prevent memory growth (every hour)
 setInterval(() => dispatchedMessageIds.clear(), 60 * 60 * 1000).unref();
 
+// Cache whether the quarantine label has been verified to exist, per client instance
+const quarantineLabelVerified = new WeakSet<GmailClient>();
+
+async function ensureQuarantineLabel(client: GmailClient, log: ChannelLogSink): Promise<void> {
+  if (quarantineLabelVerified.has(client)) return;
+  try {
+    const labels = await client.listLabels();
+    const exists = labels.some((l) => l.name === QUARANTINE_LABEL);
+    if (!exists) {
+      await client.createLabel(QUARANTINE_LABEL);
+      log.info(`Created missing Gmail label: "${QUARANTINE_LABEL}"`);
+    }
+    quarantineLabelVerified.add(client);
+  } catch (err) {
+    log.error(`Failed to ensure quarantine label "${QUARANTINE_LABEL}" exists: ${String(err)}`);
+    // Don't mark as verified — will retry next time
+  }
+}
+
 export async function quarantineMessage(id: string, log: ChannelLogSink, client: GmailClient) {
   try {
+    await ensureQuarantineLabel(client, log);
     // Add 'not-allow-listed', remove 'INBOX', leave UNREAD
     await client.modifyLabels(id, { add: [QUARANTINE_LABEL], remove: ["INBOX"] });
     log.info(`Quarantined message ${id} from disallowed sender (moved to ${QUARANTINE_LABEL}, removed from INBOX)`);
