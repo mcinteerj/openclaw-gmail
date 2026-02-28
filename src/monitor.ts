@@ -381,21 +381,6 @@ async function performFullSync(
   return null;
 }
 
-async function ensureQuarantineLabel(log: ChannelLogSink, client: GmailClient) {
-  try {
-    const labels = await client.listLabels();
-    const exists = labels.some((l) => l.name === QUARANTINE_LABEL);
-
-    if (!exists) {
-      log.info(`Creating quarantine label '${QUARANTINE_LABEL}'...`);
-      await client.createLabel(QUARANTINE_LABEL);
-    }
-  } catch (err) {
-    // If this fails, quarantine attempts will also fail, but we don't block startup
-    log.error(`Failed to ensure quarantine label exists: ${String(err)}`);
-  }
-}
-
 export async function monitorGmail(params: {
   account: ResolvedGmailAccount;
   onMessage: (msg: InboundMessage) => Promise<void>;
@@ -416,7 +401,7 @@ export async function monitorGmail(params: {
   log.info(`Starting monitor for ${account.email}`);
 
   // Ensure quarantine label exists
-  await ensureQuarantineLabel(log, client);
+  await ensureQuarantineLabel(client, log);
 
   // Prune on start
   await pruneGmailSessions(account, log);
