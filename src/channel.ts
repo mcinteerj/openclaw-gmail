@@ -146,7 +146,7 @@ async function dispatchGmailMessage(
           disableBlockStreaming:
             typeof gmailCfg?.blockStreaming === "boolean"
               ? !gmailCfg.blockStreaming
-              : true, // Default: disabled for email
+              : false, // Default: enabled — flush intermediate blocks immediately
         },
       });
       log?.info(`[gmail][${requestId}] Dispatch complete for ${msg.channelMessageId}`);
