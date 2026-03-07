@@ -1,15 +1,13 @@
+import { type ChannelPlugin, type OpenClawConfig } from "openclaw/plugin-sdk/core";
 import {
   buildChannelConfigSchema,
   getChatChannelMeta,
-  type ChannelPlugin,
   missingTargetError,
   setAccountEnabledInConfigSection,
   deleteAccountFromConfigSection,
-  type InboundMessage,
-  type OpenClawConfig,
   type ChannelGatewayContext,
-  type MsgContext,
-} from "openclaw/plugin-sdk";
+} from "openclaw/plugin-sdk/compat";
+import type { InboundMessage } from "./types.js";
 import { GmailConfigSchema, type GmailConfig } from "./config.js";
 import {
   resolveGmailAccount,
@@ -54,7 +52,7 @@ function buildGmailMsgContext(
   msg: InboundMessage,
   account: ResolvedGmailAccount,
   cfg: OpenClawConfig,
-): MsgContext {
+) {
   const runtime = getGmailRuntime();
   const to = `gmail:${account.email}`;
   const threadLabel = `Gmail thread ${msg.threadId}`;

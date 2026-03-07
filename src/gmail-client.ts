@@ -4,7 +4,7 @@ import type { GogSearchMessage } from "./inbound.js";
 import { GogGmailClient } from "./gog-client.js";
 import { ApiGmailClient } from "./api-client.js";
 import { resolveOAuthCredentials, createOAuth2Client } from "./auth.js";
-import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
 export interface GmailClient {
   send(opts: {

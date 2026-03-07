@@ -1,9 +1,6 @@
-import {
-  type ChannelConfig,
-  type ResolvedChannelAccount,
-  DEFAULT_ACCOUNT_ID,
-} from "openclaw/plugin-sdk";
-import type { GmailConfig } from "./config.js";
+import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/compat";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
+import type { ResolvedChannelAccount } from "./types.js";
 
 export interface ResolvedGmailAccount extends ResolvedChannelAccount {
   email: string;
@@ -29,7 +26,7 @@ function canonicalizeKey(value: string): string {
 }
 
 export function resolveGmailAccount(
-  cfg: ChannelConfig<GmailConfig>,
+  cfg: OpenClawConfig,
   accountId?: string,
 ): ResolvedGmailAccount {
   const resolvedId = accountId || DEFAULT_ACCOUNT_ID;
@@ -81,11 +78,11 @@ export function resolveGmailAccount(
   };
 }
 
-export function listGmailAccountIds(cfg: ChannelConfig<GmailConfig>): string[] {
+export function listGmailAccountIds(cfg: OpenClawConfig): string[] {
   return Object.keys(cfg.channels?.['openclaw-gmail']?.accounts || {});
 }
 
-export function resolveDefaultGmailAccountId(cfg: ChannelConfig<GmailConfig>): string {
+export function resolveDefaultGmailAccountId(cfg: OpenClawConfig): string {
   const ids = listGmailAccountIds(cfg);
   if (ids.length === 0) return DEFAULT_ACCOUNT_ID;
   if (ids.includes(DEFAULT_ACCOUNT_ID)) return DEFAULT_ACCOUNT_ID;

@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import http from "node:http";
 import { execFile } from "node:child_process";
-import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
 export interface OAuthCredentials {
   clientId: string;

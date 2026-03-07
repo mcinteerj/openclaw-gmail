@@ -52,6 +52,6 @@
     "zod": "^4.3.5"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.1.0"
+    "openclaw": "file:../openclaw"
   }
 }

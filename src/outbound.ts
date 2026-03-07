@@ -1,6 +1,7 @@
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
-import { type OutboundContext, type OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
+import { type ChannelOutboundContext } from "openclaw/plugin-sdk/compat";
 import { resolveGmailAccount } from "./accounts.js";
 import { isGmailThreadId } from "./normalize.js";
 import { fetchQuotedContext, type QuotedContent } from "./quoting.js";
@@ -8,7 +9,7 @@ import { validateThreadReply, isEmailAllowed } from "./outbound-check.js";
 import type { GmailConfig } from "./config.js";
 import type { GmailClient } from "./gmail-client.js";
 
-export interface GmailOutboundContext extends OutboundContext {
+export interface GmailOutboundContext extends ChannelOutboundContext {
   subject?: string;
   threadId?: string;
   replyToId?: string;

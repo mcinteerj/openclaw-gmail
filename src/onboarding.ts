@@ -1,5 +1,5 @@
-import type { OpenClawConfig, ChannelOnboardingAdapter } from "openclaw/plugin-sdk";
-import { promptAccountId } from "openclaw/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
+import { promptAccountId, type ChannelOnboardingAdapter } from "openclaw/plugin-sdk/compat";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { listGmailAccountIds, resolveDefaultGmailAccountId } from "./accounts.js";

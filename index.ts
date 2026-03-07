@@ -1,4 +1,4 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { gmailPlugin } from "./src/channel.js";
 
 import { setGmailRuntime } from "./src/runtime.js";

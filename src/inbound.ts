@@ -1,4 +1,4 @@
-import { type InboundMessage } from "openclaw/plugin-sdk";
+import { type InboundMessage } from "./types.js";
 import { extractTextBody } from "./strip-quotes.js";
 import { extractAttachments } from "./attachments.js";
 
