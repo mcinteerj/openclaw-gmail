@@ -350,6 +350,7 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
   },
   actions: {
     listActions: () => ["send"],
+    describeMessageTool: () => ({ actions: ["send"], capabilities: ["send"] }),
     supportsAction: ({ action }: { action: string }) => action === "send",
     handleAction: async (ctx: any) => {
       if (ctx.action !== "send") return { ok: false, error: new Error(`Unsupported action: ${ctx.action}`) };

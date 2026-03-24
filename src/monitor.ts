@@ -53,7 +53,7 @@ async function ensureQuarantineLabel(client: GmailClient, log: ChannelLogSink): 
 
 export async function quarantineMessage(id: string, log: ChannelLogSink, client: GmailClient) {
   try {
-    await ensureQuarantineLabel(client, log);
+    try { await ensureQuarantineLabel(client, log); } catch (e) { log.warn(`Quarantine label setup failed: ${String(e)}`); }
     // Add 'not-allow-listed', remove 'INBOX', leave UNREAD
     await client.modifyLabels(id, { add: [QUARANTINE_LABEL], remove: ["INBOX"] });
     log.info(`Quarantined message ${id} from disallowed sender (moved to ${QUARANTINE_LABEL}, removed from INBOX)`);
@@ -392,7 +392,7 @@ export async function monitorGmail(params: {
   const { account, onMessage, signal, log, setStatus, client } = params;
 
   // Doctor check — only require gog CLI for the gog backend
-  if (account.backend !== "api" && !(await GogGmailClient.checkExists())) {
+  if (account.backend === "api") { /* skip gog check */ } else if (!(await GogGmailClient.checkExists())) {
     log.error("gog CLI not found in PATH. Gmail channel disabled.");
     setStatus({ accountId: account.accountId, running: false, connected: false, error: "gog CLI missing" });
     return;
@@ -401,10 +401,10 @@ export async function monitorGmail(params: {
   log.info(`Starting monitor for ${account.email}`);
 
   // Ensure quarantine label exists
-  await ensureQuarantineLabel(client, log);
+  try { await ensureQuarantineLabel(client, log); } catch (e) { log.warn(`Quarantine label setup failed: ${String(e)}`); }
 
   // Prune on start
-  await pruneGmailSessions(account, log);
+  try { await pruneGmailSessions(account, log); } catch (e) { log.warn(`Prune failed: ${String(e)}`); }
   let lastPruneAt = Date.now();
 
   let isSyncing = false;
@@ -423,7 +423,7 @@ export async function monitorGmail(params: {
 
       // Periodically prune (once a day)
       if (Date.now() - lastPruneAt > 24 * 60 * 60 * 1000) {
-        await pruneGmailSessions(account, log);
+        try { await pruneGmailSessions(account, log); } catch (e) { log.warn(`Prune failed: ${String(e)}`); }
         lastPruneAt = Date.now();
       }
 
