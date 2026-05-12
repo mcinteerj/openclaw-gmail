@@ -234,7 +234,8 @@ export const gmailPlugin: ChannelPlugin<ResolvedGmailAccount> = {
     listAccountIds: (cfg) => listGmailAccountIds(cfg),
     resolveAccount: (cfg, accountId) => resolveGmailAccount(cfg, accountId),
     defaultAccountId: (cfg) => resolveDefaultGmailAccountId(cfg),
-    isEnabled: (account) => account.enabled,
+    isEnabled: (account) => account?.enabled !== false && Boolean(account?.email?.trim()),
+    isConfigured: (account) => Boolean(account?.email?.trim()),
     describeAccount: (account) => ({
       accountId: account.accountId,
       name: account.name || account.email,
